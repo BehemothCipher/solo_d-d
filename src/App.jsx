@@ -1,23 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import CharacterSelect from "./CharacterSelect.jsx";
 
-// Character loaded dynamically from CharacterSelectAELEN = {
-  name: "Kaelen", title: "The Slate Ghost",
-  race: "Firbolg", class: "Rogue", level: 1, background: "Hermit", alignment: "Neutral Evil",
-  hp: { max: 9, current: 9 }, ac: 13, initiative: 2, speed: 30, profBonus: 2,
-  stats: { STR: 15, DEX: 15, CON: 13, INT: 10, WIS: 16, CHA: 8 },
-  mods:  { STR: 2,  DEX: 2,  CON: 1,  INT: 0,  WIS: 3,  CHA: -1 },
-  skills: { Acrobatics:4,"Animal Handling":5,Arcana:0,Athletics:2,Deception:-1,History:0,
-    Insight:3,Intimidation:-1,Investigation:0,Medicine:3,Nature:0,Perception:5,
-    Performance:-1,Persuasion:-1,Religion:0,"Sleight of Hand":2,Stealth:6,Survival:5 },
-  attacks: [
-    { name:"Shortsword", atkBonus:4, damageDice:6, damageMod:2, type:"P/S", notes:"Finesse. Sneak Attack (1d6)." },
-    { name:"Dagger", atkBonus:4, damageDice:4, damageMod:0, type:"Piercing", notes:"Bonus Action. Thrown 20/60ft." },
-    { name:"Shortbow", atkBonus:4, damageDice:6, damageMod:2, type:"Piercing", notes:"Range 80/320ft. 20 arrows." },
-  ],
-  features:["Sneak Attack (1d6)","Speech of Beast & Leaf","Hidden Step (invisible 1 turn/rest)","Firbolg Magic (Detect Magic/Disguise Self 1/rest)","Thieves' Cant"],
-  inventory:["2× Shortsword","2× Dagger","Shortbow + 20 arrows","Leather Armor","Thieves' Tools","Herbalism Kit"],
-};
+// Character loaded dynamically from CharacterSelect
 
 const roll     = s => Math.floor(Math.random() * s) + 1;
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
