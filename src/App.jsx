@@ -49,16 +49,19 @@ function useTTS() {
     const utter = new SpeechSynthesisUtterance(clean);
     // Pick the best available voice
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v =>
-      v.name.includes("Google UK English Male") ||
-      v.name.includes("Google US English") ||
-      v.name.includes("Daniel") ||
-      v.name.includes("David") ||
-      v.lang === "en-GB"
-    ) || voices.find(v => v.lang.startsWith("en")) || voices[0];
-    if (preferred) utter.voice = preferred;
-    utter.rate  = 0.88;
-    utter.pitch = 0.85;
+    // Force deep male voice — try multiple options
+    const maleVoice = voices.find(v => v.name === "Google UK English Male")
+      || voices.find(v => v.name.includes("Male"))
+      || voices.find(v => v.name === "Daniel")
+      || voices.find(v => v.name === "David")
+      || voices.find(v => v.name.includes("James"))
+      || voices.find(v => v.name.includes("Arthur"))
+      || voices.find(v => v.name.includes("Google") && v.lang === "en-GB")
+      || voices.find(v => v.lang === "en-GB")
+      || voices.find(v => v.lang.startsWith("en"));
+    if (maleVoice) utter.voice = maleVoice;
+    utter.rate   = 0.82;
+    utter.pitch  = 0.7;
     utter.volume = 1;
     utter.onstart = () => setSpeaking(true);
     utter.onend   = () => setSpeaking(false);
@@ -472,12 +475,13 @@ export default function App() {
     (async () => {
       try {
         const res = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
-        const text = await res.text();
-        // Show exactly what the load returned
-        alert("LOAD RESPONSE (status " + res.status + "):\n" + text.slice(0, 300));
         if (res.ok) {
-          const data = JSON.parse(text);
-          const saved = data.state;
+          const data = await res.json();
+          // Handle double-stringified state
+          let saved = data.state;
+          if (typeof saved === "string") {
+            try { saved = JSON.parse(saved); } catch {}
+          }
           if (saved && saved.messages?.length > 0) {
             setMsgs(saved.messages);
             setHistory(saved.history || []);
@@ -488,12 +492,10 @@ export default function App() {
             setTimeout(() => setSaveStatus(""), 3000);
             setInit(false);
             return;
-          } else {
-            alert("No saved messages found in state: " + JSON.stringify(data).slice(0, 200));
           }
         }
       } catch(err) {
-        alert("LOAD ERROR: " + err.message);
+        console.warn("Load error:", err);
       }
       setInit(false);
       await startAdventure();
