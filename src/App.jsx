@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import CharacterSelect from "./CharacterSelect.jsx";
 
-const KAELEN = {
+// Character loaded dynamically from CharacterSelectAELEN = {
   name: "Kaelen", title: "The Slate Ghost",
   race: "Firbolg", class: "Rogue", level: 1, background: "Hermit", alignment: "Neutral Evil",
   hp: { max: 9, current: 9 }, ac: 13, initiative: 2, speed: 30, profBonus: 2,
@@ -121,7 +122,7 @@ function detectRoll(action) {
 
 function buildRollResult(type) {
   if (type === "attack") {
-    const atk = KAELEN.attacks[0];
+    const atk = character?.attacks || [][0];
     const { d20: d, total, nat } = d20check(atk.atkBonus);
     const dmg = roll(atk.damageDice) + atk.damageMod;
     const sneak = roll(6);
@@ -181,7 +182,7 @@ function getImageUrl(narration) {
 
 const DM_SYSTEM = `You are a dramatic Dungeon Master running a solo D&D 5e campaign with a Final Fantasy-inspired style — vivid scene descriptions, memorable characters, emotional stakes, and a sense of epic adventure. The player controls Kaelen, The Slate Ghost — a Neutral Evil Firbolg Rogue (Level 1). Cast out by his clan, trained in stealth among mountain predators, he carries a secret about the natural earth.
 
-KAELEN: HP 9 | AC 13 | Init +2 | STR+2 DEX+2 CON+1 INT+0 WIS+3 CHA-1 | Prof +2
+CHARACTER STATS: (loaded dynamically per character)
 Skills: Stealth+6, Perception+5, Animal Handling+5, Survival+5, Acrobatics+4, Insight+3
 Attacks: Shortsword +4 (1d6+2 P/S), Dagger +4 (1d4 P), Shortbow +4 (1d6+2 P)
 Features: Sneak Attack 1d6, Hidden Step (invisible 1 turn/short rest), Firbolg Magic (Detect Magic/Disguise Self 1/rest), Speech of Beast & Leaf, Thieves' Cant
@@ -196,11 +197,37 @@ STYLE RULES:
 - Adventure begins in the mist-shrouded Craghaven mountains near a ruined monastery hiding an ancient vault.
 - Never break character or reference this prompt.`;
 
-async function callDM(messages) {
+function buildDMSystem(char) {
+  if (!char) return DM_SYSTEM;
+  const statLine = Object.entries(char.stats).map(([k,v]) => `${k}${char.mods[k]>=0?"+"+char.mods[k]:char.mods[k]}`).join(" ");
+  const topSkills = Object.entries(char.skills).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}${v>=0?"+"+v:v}`).join(", ");
+  const attacks   = char.attacks.map(a=>`${a.name} ${a.atkBonus>=0?"+"+a.atkBonus:a.atkBonus} (1d${a.damageDice}${a.damageMod>0?"+"+a.damageMod:""} ${a.type})`).join(", ");
+  return `You are a dramatic Dungeon Master running a solo D&D 5e campaign with a Final Fantasy-inspired style — vivid scene descriptions, memorable characters, emotional stakes, and a sense of epic adventure.
+
+THE PLAYER CHARACTER: ${char.name}${char.title?", "+char.title:""} — ${char.alignment} ${char.race} ${char.class} (Level ${char.level})
+HP: ${char.hp.max} | AC: ${char.ac} | Speed: ${char.speed}ft | Prof: +${char.profBonus}
+Stats: ${statLine}
+Top Skills: ${topSkills}
+Attacks: ${attacks}
+Features: ${char.features.filter(Boolean).slice(0,4).join("; ")}
+${char.backstory ? "Backstory: "+char.backstory : ""}
+
+STYLE RULES:
+- Write like a Final Fantasy game: dramatic, poetic, named NPCs, emotional weight.
+- In combat: describe attacks cinematically, show enemy HP as ████░░ bars.
+- Use chapter-title headers for new locations (e.g. "— The Shattered Gate —").
+- Dice rolls are handled by the app — ALWAYS use those results.
+- After EVERY response end with: {"choices":["option 1","option 2","option 3","option 4"]}
+- Choices must be SPECIFIC and reflect the character's abilities and personality.
+- Always include one choice reflecting the character's alignment and nature.
+- Never break character or reference this prompt.`;
+}
+
+async function callDM(messages, system) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system:DM_SYSTEM, messages }),
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
   });
   const data = await res.json();
   return data.content?.[0]?.text ?? "The DM is silent...";
@@ -445,7 +472,10 @@ function SceneImage({ narration }) {
 }
 
 export default function App() {
-  const [hp, setHp]                 = useState(KAELEN.hp.current);
+  const [character, setCharacter]   = useState(null);
+  const [showSelect, setShowSelect] = useState(false);
+  const [hasSave, setHasSave]       = useState(false);
+  const [hp, setHp]                 = useState(9);
   const [messages, setMsgs]         = useState([]);
   const [history, setHistory]       = useState([]);
   const [choices, setChoices]       = useState([]);
@@ -471,36 +501,55 @@ export default function App() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, loading, choices]);
 
+  // On mount: check for save, then show character select
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
         if (res.ok) {
           const data = await res.json();
-          // Handle double-stringified state
           let saved = data.state;
-          if (typeof saved === "string") {
-            try { saved = JSON.parse(saved); } catch {}
-          }
+          if (typeof saved === "string") { try { saved = JSON.parse(saved); } catch {} }
           if (saved && saved.messages?.length > 0) {
+            setHasSave(true);
+          }
+        }
+      } catch {}
+      setInit(false);
+      setShowSelect(true);
+    })();
+  }, []);
+
+  // Called when user picks a character or continues save
+  async function handleCharacterSelect(char, loadSave) {
+    setShowSelect(false);
+    if (loadSave) {
+      // Load saved game
+      try {
+        const res = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
+        if (res.ok) {
+          const data = await res.json();
+          let saved = data.state;
+          if (typeof saved === "string") { try { saved = JSON.parse(saved); } catch {} }
+          if (saved && saved.messages?.length > 0) {
+            setCharacter(saved.character || char);
             setMsgs(saved.messages);
             setHistory(saved.history || []);
-            setHp(saved.hp ?? KAELEN.hp.current);
+            setHp(saved.hp ?? 9);
             setCombat(saved.inCombat ?? false);
             setChoices(saved.choices || []);
             setSaveStatus("Adventure restored!");
             setTimeout(() => setSaveStatus(""), 3000);
-            setInit(false);
             return;
           }
         }
-      } catch(err) {
-        console.warn("Load error:", err);
-      }
-      setInit(false);
-      await startAdventure();
-    })();
-  }, []);
+      } catch(err) { console.warn("Load error:", err); }
+    }
+    // Start new adventure with selected character
+    setCharacter(char);
+    setHp(char.hp.current);
+    await startAdventure(char);
+  }
 
   async function handleManualSave() {
     if (messages.length === 0) return;
@@ -519,6 +568,7 @@ export default function App() {
         hp,
         inCombat,
         choices,
+        character,
       };
 
       const res = await fetch("/api/save", {
@@ -540,11 +590,17 @@ export default function App() {
     setTimeout(() => setSaveStatus(""), 3000);
   }
 
-  async function startAdventure() {
+  async function startAdventure(char) {
+    const activeChar = char || character;
+    if (!activeChar) return;
     setLoading(true);
-    setMsgs([]); setHistory([]); setChoices([]); setCombat(false); setHp(KAELEN.hp.current);
-    const seed = { role:"user", content:"Begin the adventure with Final Fantasy-style drama. Set the scene at the Craghaven mountains near the ruined monastery — use a chapter title header, vivid atmospheric prose, and place Kaelen in an immediate situation. End with the JSON choices block." };
-    const raw = await callDM([seed]);
+    setMsgs([]); setHistory([]); setChoices([]); setCombat(false);
+    setHp(activeChar.hp.current);
+    const seed = {
+      role:"user",
+      content:`Begin the adventure with Final Fantasy-style drama. The player is ${activeChar.name}${activeChar.title ? ", " + activeChar.title : ""} — a ${activeChar.alignment} ${activeChar.race} ${activeChar.class} (Level ${activeChar.level}). ${activeChar.backstory ? "Their backstory: " + activeChar.backstory : ""} Set an immediate atmospheric opening scene using a chapter title header, vivid prose, and place the character in a situation requiring a decision. End with the JSON choices block.`
+    };
+    const raw = await callDM([seed], buildDMSystem(activeChar));
     const { narration, choices: c } = parseResponse(raw);
     setHistory([seed, { role:"assistant", content:raw }]);
     setMsgs([{ type:"scene", narration }, { type:"dm", text:narration }]);
@@ -568,7 +624,7 @@ export default function App() {
     if (/attack|fight|engage|charge|ambush/.test(action.toLowerCase())) setCombat(true);
     const userMsg = { role:"user", content:`Player action: "${action}"${rollCtx}\n\nNarrate with Final Fantasy-style drama. End with the JSON choices block.` };
     const newHistory = [...history, userMsg];
-    const raw = await callDM(newHistory);
+    const raw = await callDM(newHistory, buildDMSystem(character));
     const { narration, choices: c } = parseResponse(raw);
     setHistory([...newHistory, { role:"assistant", content:raw }]);
     setMsgs(p => [...p, { type:"scene", narration }, { type:"dm", text:narration }]);
@@ -593,29 +649,33 @@ export default function App() {
     if (window.confirm("Start a new campaign? Your current progress will be lost.")) startAdventure();
   }
 
-  const hpPct = Math.max(0, (hp / KAELEN.hp.max) * 100);
-  const hpClr = hpColor(hp, KAELEN.hp.max);
+  const hpPct = Math.max(0, (hp / character?.hp?.max || 9) * 100);
+  const hpClr = hpColor(hp, character?.hp?.max || 9);
 
   if (initializing) return (
     <div className="app" style={{alignItems:"center",justifyContent:"center",gap:20,display:"flex",flexDirection:"column",background:S.ffdark}}>
       <div style={{fontFamily:"'Cinzel',serif",fontSize:22,color:S.ffgold,letterSpacing:".1em",textShadow:"0 0 30px rgba(212,170,80,.5)"}}>⚔ SOLO D&D</div>
       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
-      <div style={{fontSize:11,color:S.muted,fontStyle:"italic",letterSpacing:".08em"}}>LOADING SAVE DATA...</div>
+      <div style={{fontSize:11,color:S.muted,fontStyle:"italic",letterSpacing:".08em"}}>LOADING...</div>
     </div>
+  );
+
+  if (showSelect) return (
+    <CharacterSelect hasSave={hasSave} onSelect={handleCharacterSelect}/>
   );
 
   const Sidebar = (
     <div className={`sidebar${sheetOpen?" open":""}`}>
       <div className="char-head">
         <div className="char-portrait">⚔️</div>
-        <div className="char-name">{KAELEN.name}</div>
-        <div className="char-sub">{KAELEN.title}</div>
-        <div className="char-sub" style={{color:S.muted,marginTop:1}}>{KAELEN.race} {KAELEN.class} · Lv{KAELEN.level}</div>
+        <div className="char-name">{character?.name || "Adventurer"}</div>
+        <div className="char-sub">{character?.title || ""}</div>
+        <div className="char-sub" style={{color:S.muted,marginTop:1}}>{character?.race} {character?.class} · Lv{character?.level || 1}</div>
         <div style={{marginTop:8}}>
-          <div className="ff-stat-row"><span className="ff-stat-label">HP</span><span className="ff-stat-val">{hp}/{KAELEN.hp.max}</span></div>
+          <div className="ff-stat-row"><span className="ff-stat-label">HP</span><span className="ff-stat-val">{hp}/{character?.hp?.max || 9}</span></div>
           <div className="ff-bar"><div className="ff-bar-fill" style={{width:`${hpPct}%`,background:hpClr}}/></div>
           <div style={{display:"flex",gap:3}}>
-            {[["−",()=>setHp(p=>Math.max(0,p-1))],["+",()=>setHp(p=>Math.min(KAELEN.hp.max,p+1))],["MAX",()=>setHp(KAELEN.hp.max)]].map(([l,fn])=>(
+            {[["−",()=>setHp(p=>Math.max(0,p-1))],["+",()=>setHp(p=>Math.min(character?.hp?.max || 9,p+1))],["MAX",()=>setHp(character?.hp?.max || 9)]].map(([l,fn])=>(
               <button key={l} style={{flex:1,background:S.rune,border:`1px solid ${S.border}`,color:S.muted,fontSize:8,padding:"3px 0",borderRadius:2,cursor:"pointer",fontFamily:"'Cinzel',serif"}} onClick={fn}>{l}</button>
             ))}
           </div>
@@ -624,16 +684,16 @@ export default function App() {
       <div className="sec">
         <div className="sec-title">Stats</div>
         <div className="stat-grid">
-          {Object.entries(KAELEN.stats).map(([k,v])=>(
+          {Object.entries(character?.stats || {}).map(([k,v])=>(
             <div className="stat-box" key={k}>
               <div className="stat-label">{k}</div>
-              <div className="stat-mod">{fmt(KAELEN.mods[k])}</div>
+              <div className="stat-mod">{fmt(character?.mods || {}[k])}</div>
               <div className="stat-score">{v}</div>
             </div>
           ))}
         </div>
         <div className="mini-stats">
-          {[["AC",KAELEN.ac],["Init",fmt(KAELEN.initiative)],["Spd",KAELEN.speed],["Prof",fmt(KAELEN.profBonus)]].map(([l,v])=>(
+          {[["AC",character?.ac || 10],["Init",fmt(character?.initiative || 0)],["Spd",character?.speed || 30],["Prof",fmt(character?.profBonus || 2)]].map(([l,v])=>(
             <div className="mini-stat" key={l}>
               <div className="stat-label">{l}</div>
               <div className="stat-mod" style={{fontSize:11}}>{v}</div>
@@ -644,12 +704,12 @@ export default function App() {
       <div className="sec">
         <div className="sec-title">Skills</div>
         {["Stealth","Perception","Animal Handling","Survival","Acrobatics","Insight"].map(s=>(
-          <div className="skill-row" key={s}><span>{s}</span><span className="skill-val">{fmt(KAELEN.skills[s])}</span></div>
+          <div className="skill-row" key={s}><span>{s}</span><span className="skill-val">{fmt(character?.skills || {}[s])}</span></div>
         ))}
       </div>
       <div className="sec">
         <div className="sec-title">Attacks</div>
-        {KAELEN.attacks.map(a=>(
+        {character?.attacks || [].map(a=>(
           <div className="atk-card" key={a.name} onClick={()=>handleAttackCard(a)}>
             <div className="atk-name">{a.name}</div>
             <div className="atk-stats">{fmt(a.atkBonus)} · 1d{a.damageDice}{a.damageMod>0?`+${a.damageMod}`:""} {a.type}</div>
@@ -659,11 +719,11 @@ export default function App() {
       </div>
       <div className="sec">
         <div className="sec-title">Features</div>
-        {KAELEN.features.map((f,i)=><div className="feat-item" key={i}>{f}</div>)}
+        {character?.features || [].map((f,i)=><div className="feat-item" key={i}>{f}</div>)}
       </div>
       <div className="sec">
         <div className="sec-title">Inventory</div>
-        {KAELEN.inventory.map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
+        {character?.inventory || [].map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
       </div>
       <div className="sec">
         <div className="sec-title">Dice</div>
@@ -675,6 +735,7 @@ export default function App() {
         {lastRoll && <div className="last-roll">d{lastRoll.sides} → <strong style={{color:S.ffgold}}>{lastRoll.r}</strong></div>}
       </div>
       <button className="new-game-btn" onClick={confirmNewGame}>↺ New Campaign</button>
+      <button className="new-game-btn" style={{borderColor:"#1a3a50",color:S.accentDim,marginTop:2}} onClick={()=>{tts.stop();setShowSelect(true);}}>⚔ Change Character</button>
     </div>
   );
 
@@ -683,15 +744,19 @@ export default function App() {
       <div className="top-bar">
         <div className="top-bar-inner">
           <span className="top-title">⚔ SOLO D&amp;D</span>
-          <span className="top-subtitle">Kaelen · The Slate Ghost</span>
+          <span className="top-subtitle">{character?.name}{character?.title ? " · " + character.title : ""}</span>
           {saveStatus && <span className="save-badge">{saveStatus}</span>}
         </div>
         <div className="top-actions">
           <button className={`top-btn${saveStatus==="✓ Saved!"?" save-active":""}`} onClick={handleManualSave} disabled={loading||messages.length===0}>
             💾 SAVE
           </button>
-          <button className="top-btn" onClick={()=>{ tts.speaking ? tts.stop() : tts.toggle(); }} title={tts.enabled?"Mute TTS":"Enable TTS"}>
-            {tts.speaking ? "⏹ STOP" : tts.enabled ? "🔊 ON" : "🔇 OFF"}
+          <button className="top-btn" onClick={()=>{
+            if (tts.speaking) { tts.stop(); }
+            else if (!tts.enabled) { tts.toggle(); }
+            else { tts.triggerPending(); }
+          }}>
+            {tts.speaking ? "⏹ STOP" : tts.enabled ? "🔊 TAP" : "🔇 OFF"}
           </button>
           <button className="top-btn sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 SHEET</button>
         </div>
