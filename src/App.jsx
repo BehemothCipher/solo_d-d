@@ -22,14 +22,9 @@ const roll     = s => Math.floor(Math.random() * s) + 1;
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
-// Fixed session key
+// Always use fixed session key — no random IDs
 function getSessionId() {
-  const FIXED_KEY = "solo_dnd_kaelen_v1";
-  try {
-    let id = localStorage.getItem("solo_dnd_session");
-    if (!id) { localStorage.setItem("solo_dnd_session", FIXED_KEY); return FIXED_KEY; }
-    return id;
-  } catch { return FIXED_KEY; }
+  return "solo_dnd_kaelen_v1";
 }
 
 async function saveGame(sessionId, state) {
