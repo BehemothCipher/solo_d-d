@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import CharacterSelect from "./CharacterSelect.jsx";
 
 // Character loaded dynamically from CharacterSelect
@@ -490,24 +490,46 @@ export default function App() {
     return () => document.head.removeChild(el);
   }, []);
 
-  // Scroll so new DM message appears at top of view
-  const prevMsgCount = useRef(0);
-  useEffect(() => {
-    if (!logRef.current) return;
-    const msgs = logRef.current.querySelectorAll(".msg-dm");
-    if (msgs.length > prevMsgCount.current && msgs.length > 0) {
-      // New DM message — scroll it to top
-      const lastDm = msgs[msgs.length - 1];
-      // Find the scene image before it if any
-      const prev = lastDm.previousElementSibling;
-      const target = (prev && prev.classList.contains("scene-wrap")) ? prev : lastDm;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      // Choices/loading — scroll to bottom
-      logRef.current.scrollTop = logRef.current.scrollHeight;
+  // Track current card index
+  const [cardIndex, setCardIndex] = useState(0);
+
+  // Build cards from messages — each DM response + its scene = one card
+  const cards = useMemo(() => {
+    const result = [];
+    let i = 0;
+    while (i < messages.length) {
+      const msg = messages[i];
+      if (msg.type === "scene") {
+        const next = messages[i + 1];
+        if (next && next.type === "dm") {
+          result.push({ scene: msg, dm: next, rolls: [], player: null });
+          i += 2;
+          continue;
+        }
+      }
+      if (msg.type === "dm") {
+        result.push({ scene: null, dm: msg, rolls: [], player: null });
+        i++;
+        continue;
+      }
+      if (msg.type === "player" || msg.type === "roll") {
+        if (result.length > 0) {
+          const card = result[result.length - 1];
+          if (msg.type === "roll") card.rolls.push(msg);
+          if (msg.type === "player") card.player = msg;
+        }
+        i++;
+        continue;
+      }
+      i++;
     }
-    prevMsgCount.current = msgs.length;
-  }, [messages, loading, choices]);
+    return result;
+  }, [messages]);
+
+  // Auto-advance to latest card when new message arrives
+  useEffect(() => {
+    if (cards.length > 0) setCardIndex(cards.length - 1);
+  }, [cards.length]);
 
   // On mount: check for save, then show character select
   useEffect(() => {
@@ -780,25 +802,41 @@ export default function App() {
               <button className="end-btn" onClick={()=>{setCombat(false);setMsgs(p=>[...p,{type:"sys",text:"— Battle ended —"}]);}}>Flee</button>
             </div>
           )}
-          <div className="log" ref={logRef}>
-            {messages.map((msg,i)=>{
-              if (msg.type==="scene")  return <SceneImage key={`scene-${i}`} narration={msg.narration}/>;
-              if (msg.type==="dm")     return <div key={i} className="msg-dm">{msg.text}</div>;
-              if (msg.type==="player") return <div key={i} className="msg-player">› {msg.text}</div>;
-              if (msg.type==="roll")   return (
-                <div key={i} className="msg-roll">
-                  <div className="roll-title">{msg.title}</div>
-                  {msg.lines.map((l,j)=><div key={j}>{l}</div>)}
-                </div>
-              );
-              if (msg.type==="sys") return <div key={i} className="msg-sys">{msg.text}</div>;
-              return null;
-            })}
-            {loading && (
-              <div className="msg-dm">
-                <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
+          {/* Card navigation */}
+          <div className="card-nav">
+            <button className="card-nav-btn" onClick={()=>setCardIndex(i=>Math.max(0,i-1))} disabled={cardIndex===0}>‹</button>
+            <span className="card-nav-count">{cards.length > 0 ? `${cardIndex+1} / ${cards.length}` : "—"}</span>
+            <button className="card-nav-btn" onClick={()=>setCardIndex(i=>Math.min(cards.length-1,i+1))} disabled={cardIndex>=cards.length-1}>›</button>
+          </div>
+
+          {/* Card display */}
+          <div className="card-area" ref={logRef}>
+            {loading && cards.length === 0 && (
+              <div className="play-card">
+                <div className="msg-dm"><div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div></div>
               </div>
             )}
+            {cards.length > 0 && (() => {
+              const card = cards[cardIndex];
+              return (
+                <div className="play-card" key={cardIndex}>
+                  {card.scene && <SceneImage narration={card.scene.narration}/>}
+                  {card.player && <div className="msg-player">› {card.player.text}</div>}
+                  {card.rolls.map((r,i)=>(
+                    <div key={i} className="msg-roll">
+                      <div className="roll-title">{r.title}</div>
+                      {r.lines.map((l,j)=><div key={j}>{l}</div>)}
+                    </div>
+                  ))}
+                  <div className="msg-dm">{card.dm.text}</div>
+                  {loading && cardIndex === cards.length - 1 && (
+                    <div className="msg-dm" style={{borderTop:`1px solid ${S.border}`,paddingTop:10,marginTop:10}}>
+                      <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           {choices.length>0 && !loading && (
             <div className="choices-wrap">
