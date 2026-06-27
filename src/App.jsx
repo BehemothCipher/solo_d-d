@@ -218,36 +218,45 @@ async function callDM(messages, system) {
 }
 
 function parseResponse(raw) {
-  // Try multiple patterns to find the choices JSON block
   let choices = [], narration = raw;
-  
-  // Pattern 1: standard inline JSON
-  let match = raw.match(/\{"choices":\s*\[[\s\S]*?\]\s*\}/);
-  
-  // Pattern 2: JSON on its own line at end
-  if (!match) match = raw.match(/\n\s*\{"choices":[\s\S]+\}\s*$/);
-  
-  // Pattern 3: anywhere in text
-  if (!match) match = raw.match(/\{\s*"choices"\s*:\s*\[([\s\S]*?)\]\s*\}/);
 
-  if (match) {
+  // Find the LAST occurrence of a JSON choices block anywhere in the text
+  // Also handle ```json code blocks the DM sometimes wraps it in
+  const cleaned = raw
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "");
+
+  // Try to find {"choices":[...]} — greedy from last occurrence
+  const allMatches = [...cleaned.matchAll(/\{"choices"\s*:\s*\[([\s\S]*?)\]\s*\}/g)];
+  
+  if (allMatches.length > 0) {
+    const match = allMatches[allMatches.length - 1]; // use last match
     try {
       const parsed = JSON.parse(match[0]);
       choices = parsed.choices || [];
-      narration = raw.slice(0, match.index).trim();
-    } catch(e) {
-      // If JSON parse fails, try to extract choices manually
+    } catch {
+      // Manual extraction fallback
       try {
-        const inner = match[0].replace(/^\{\s*"choices"\s*:\s*\[/, "").replace(/\]\s*\}$/, "");
-        choices = inner.split(/",\s*"/).map(s => s.replace(/^"|"$/g, "").trim()).filter(Boolean);
-        narration = raw.slice(0, match.index).trim();
+        choices = match[1]
+          .split(/",\s*"/)
+          .map(s => s.replace(/^[\s"]+|[\s"]+$/g, "").trim())
+          .filter(s => s.length > 3);
       } catch {}
     }
+    // Narration = everything before the match, in the cleaned string
+    narration = cleaned.slice(0, match.index).trim();
+  } else {
+    narration = cleaned.trim();
   }
-  
-  // Clean up any trailing --- or whitespace from narration
-  narration = narration.replace(/---\s*$/, "").trim();
-  
+
+  // Strip trailing markdown artifacts
+  narration = narration
+    .replace(/```json\s*$/gi, "")
+    .replace(/```\s*$/g, "")
+    .replace(/---\s*$/g, "")
+    .replace(/\{\s*$/g, "")
+    .trim();
+
   return { narration, choices };
 }
 
