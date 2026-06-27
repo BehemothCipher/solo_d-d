@@ -234,11 +234,10 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
 
 /* Fixed scene image - always takes up space, skeleton shown while loading */
-.scene-wrap{width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;position:relative;}
-.scene-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,${S.bg});pointer-events:none;}
-.scene-img-container{width:100%;aspect-ratio:16/9;position:relative;}
+.scene-wrap{width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;}
+.scene-img-container{width:100%;padding-top:56.25%;position:relative;}
 .scene-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
-.scene-img{object-fit:cover;transition:opacity .6s ease;display:block;}
+.scene-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:opacity .6s ease;}
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
 .msg-dm{background:${S.panel};border:1px solid ${S.border};border-left:3px solid ${S.accentDim};border-radius:0 5px 5px 0;padding:11px 13px;font-size:15px;line-height:1.75;color:${S.text};white-space:pre-wrap;}
@@ -289,28 +288,24 @@ function hpColor(cur, max) {
   return p > .6 ? S.green : p > .3 ? S.gold : S.red;
 }
 
-// Fixed SceneImage — container always takes up space, skeleton fades out when image loads
 function SceneImage({ narration }) {
   const [loaded, setLoaded]   = useState(false);
   const [errored, setErrored] = useState(false);
   const [url, setUrl]         = useState("");
-  const [retries, setRetries] = useState(0);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     setLoaded(false);
     setErrored(false);
-    setRetries(0);
-    const seed = Math.floor(Math.random() * 999999);
-    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${seed}`);
+    setAttempt(0);
+    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${Math.floor(Math.random()*999999)}`);
   }, [narration]);
 
   function handleError() {
-    if (retries < 2) {
-      // Retry with a new seed
-      setRetries(r => r + 1);
+    if (attempt < 2) {
+      setAttempt(a => a + 1);
       setLoaded(false);
-      const seed = Math.floor(Math.random() * 999999);
-      setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${seed}`);
+      setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${Math.floor(Math.random()*999999)}`);
     } else {
       setErrored(true);
     }
@@ -321,24 +316,22 @@ function SceneImage({ narration }) {
   return (
     <div className="scene-wrap">
       <div className="scene-img-container">
-        {/* Skeleton shown while loading */}
-        {!loaded && !errored && (
-          <div className="scene-skeleton" />
-        )}
-        {/* Image fades in on load */}
+        {/* Skeleton always in DOM, hidden once loaded */}
+        {!errored && <div className="scene-skeleton" style={{opacity: loaded ? 0 : 1, transition:"opacity .6s ease"}}/>}
+        {/* Image sits on top via position:absolute (set in CSS) */}
         {!errored && (
           <img
             key={url}
             src={url}
             className="scene-img"
-            style={{ opacity: loaded ? 1 : 0, position: loaded ? "relative" : "absolute", top:0, left:0, width:"100%", height:"100%" }}
+            style={{opacity: loaded ? 1 : 0}}
             onLoad={() => setLoaded(true)}
             onError={handleError}
             alt="Scene"
           />
         )}
         {errored && (
-          <div style={{ width:"100%", aspectRatio:"16/9", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:S.muted, fontStyle:"italic", background:"#0a0c10" }}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:S.muted,fontStyle:"italic"}}>
             Scene unavailable
           </div>
         )}
