@@ -497,8 +497,23 @@ export default function App() {
     return () => document.head.removeChild(el);
   }, []);
 
+  // Scroll so new DM message appears at top of view
+  const prevMsgCount = useRef(0);
   useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+    if (!logRef.current) return;
+    const msgs = logRef.current.querySelectorAll(".msg-dm");
+    if (msgs.length > prevMsgCount.current && msgs.length > 0) {
+      // New DM message — scroll it to top
+      const lastDm = msgs[msgs.length - 1];
+      // Find the scene image before it if any
+      const prev = lastDm.previousElementSibling;
+      const target = (prev && prev.classList.contains("scene-wrap")) ? prev : lastDm;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      // Choices/loading — scroll to bottom
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+    prevMsgCount.current = msgs.length;
   }, [messages, loading, choices]);
 
   // On mount: check for save, then show character select
@@ -753,10 +768,10 @@ export default function App() {
           </button>
           <button className="top-btn" onClick={()=>{
             if (tts.speaking) { tts.stop(); }
-            else if (!tts.enabled) { tts.toggle(); }
-            else { tts.triggerPending(); }
+            else if (!tts.enabled) { tts.toggleEnabled(); }
+            else { tts.playPending(); }
           }}>
-            {tts.speaking ? "⏹ STOP" : tts.enabled ? "🔊 TAP" : "🔇 OFF"}
+            {tts.speaking ? "⏹ STOP" : tts.enabled ? "🔊 ON" : "🔇 OFF"}
           </button>
           <button className="top-btn sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 SHEET</button>
         </div>
