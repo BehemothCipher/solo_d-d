@@ -436,10 +436,26 @@ export default function App() {
   async function handleManualSave() {
     if (messages.length === 0) return;
     setSaveStatus("Saving...");
-    const state = { messages, history, hp, inCombat, choices };
-    await saveGame(sessionId.current, state);
-    setSaveStatus("✓ Saved!");
-    setTimeout(() => setSaveStatus(""), 2500);
+    try {
+      const state = { messages, history, hp, inCombat, choices };
+      const res = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "solo_dnd_kaelen_v1", state }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setSaveStatus("✓ Saved!");
+        alert("SAVE OK — session: solo_dnd_kaelen_v1");
+      } else {
+        setSaveStatus("✗ Failed");
+        alert("SAVE FAILED: " + JSON.stringify(data));
+      }
+    } catch(err) {
+      setSaveStatus("✗ Error");
+      alert("SAVE ERROR: " + err.message);
+    }
+    setTimeout(() => setSaveStatus(""), 3000);
   }
 
   async function startAdventure() {
