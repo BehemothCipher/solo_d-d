@@ -22,13 +22,20 @@ const roll     = s => Math.floor(Math.random() * s) + 1;
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
+// Fixed session key — always the same for this device
+// Uses localStorage as backup but falls back to a stable key
 function getSessionId() {
-  let id = localStorage.getItem("solo_dnd_session");
-  if (!id) {
-    id = "sess_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem("solo_dnd_session", id);
+  const FIXED_KEY = "solo_dnd_kaelen_v1";
+  try {
+    let id = localStorage.getItem("solo_dnd_session");
+    if (!id) {
+      localStorage.setItem("solo_dnd_session", FIXED_KEY);
+      return FIXED_KEY;
+    }
+    return id;
+  } catch {
+    return FIXED_KEY;
   }
-  return id;
 }
 
 async function saveGame(sessionId, state) {
@@ -231,7 +238,7 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .scene-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,${S.bg});pointer-events:none;}
 .scene-img-container{width:100%;aspect-ratio:16/9;position:relative;}
 .scene-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
-.scene-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .6s ease;}
+.scene-img{object-fit:cover;transition:opacity .6s ease;display:block;}
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
 .msg-dm{background:${S.panel};border:1px solid ${S.border};border-left:3px solid ${S.accentDim};border-radius:0 5px 5px 0;padding:11px 13px;font-size:15px;line-height:1.75;color:${S.text};white-space:pre-wrap;}
@@ -287,37 +294,52 @@ function SceneImage({ narration }) {
   const [loaded, setLoaded]   = useState(false);
   const [errored, setErrored] = useState(false);
   const [url, setUrl]         = useState("");
+  const [retries, setRetries] = useState(0);
 
   useEffect(() => {
     setLoaded(false);
     setErrored(false);
+    setRetries(0);
     const seed = Math.floor(Math.random() * 999999);
-    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1280&height=720&nologo=true&model=flux&enhance=true&seed=${seed}`);
+    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${seed}`);
   }, [narration]);
+
+  function handleError() {
+    if (retries < 2) {
+      // Retry with a new seed
+      setRetries(r => r + 1);
+      setLoaded(false);
+      const seed = Math.floor(Math.random() * 999999);
+      setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${seed}`);
+    } else {
+      setErrored(true);
+    }
+  }
 
   if (!url) return null;
 
   return (
     <div className="scene-wrap">
       <div className="scene-img-container">
-        {/* Skeleton always rendered, fades out when image loads */}
-        {!errored && (
-          <div className="scene-skeleton" style={{ opacity: loaded ? 0 : 1, transition: "opacity .6s ease" }} />
+        {/* Skeleton shown while loading */}
+        {!loaded && !errored && (
+          <div className="scene-skeleton" />
         )}
-        {/* Image always in DOM, fades in when loaded */}
+        {/* Image fades in on load */}
         {!errored && (
           <img
+            key={url}
             src={url}
             className="scene-img"
-            style={{ opacity: loaded ? 1 : 0 }}
+            style={{ opacity: loaded ? 1 : 0, position: loaded ? "relative" : "absolute", top:0, left:0, width:"100%", height:"100%" }}
             onLoad={() => setLoaded(true)}
-            onError={() => setErrored(true)}
+            onError={handleError}
             alt="Scene"
           />
         )}
         {errored && (
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:S.muted, fontStyle:"italic" }}>
-            Scene image unavailable
+          <div style={{ width:"100%", aspectRatio:"16/9", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:S.muted, fontStyle:"italic", background:"#0a0c10" }}>
+            Scene unavailable
           </div>
         )}
       </div>
