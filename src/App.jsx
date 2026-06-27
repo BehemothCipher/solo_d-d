@@ -27,6 +27,59 @@ function getSessionId() {
   return "solo_dnd_kaelen_v1";
 }
 
+// ── Text-to-Speech ───────────────────────────────────────────────────────────
+function useTTS() {
+  const [speaking, setSpeaking] = useState(false);
+  const [enabled, setEnabled]   = useState(true);
+  const utterRef = useRef(null);
+
+  function speak(text) {
+    if (!enabled || !window.speechSynthesis) return;
+    // Clean markdown symbols before speaking
+    const clean = text
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/#{1,3}\s/g, "")
+      .replace(/---/g, "")
+      .replace(/[▶›]/g, "")
+      .replace(/\{.*?\}/g, "")
+      .trim();
+    if (!clean) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(clean);
+    // Pick the best available voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.name.includes("Google UK English Male") ||
+      v.name.includes("Google US English") ||
+      v.name.includes("Daniel") ||
+      v.name.includes("David") ||
+      v.lang === "en-GB"
+    ) || voices.find(v => v.lang.startsWith("en")) || voices[0];
+    if (preferred) utter.voice = preferred;
+    utter.rate  = 0.88;
+    utter.pitch = 0.85;
+    utter.volume = 1;
+    utter.onstart = () => setSpeaking(true);
+    utter.onend   = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    utterRef.current = utter;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function stop() {
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
+
+  function toggle() {
+    if (speaking) { stop(); }
+    setEnabled(e => !e);
+  }
+
+  return { speak, stop, speaking, enabled, toggle };
+}
+
 async function saveGame(sessionId, state) {
   try {
     const res = await fetch("/api/save", {
@@ -402,6 +455,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState("");
   const sessionId = useRef(getSessionId());
   const logRef    = useRef(null);
+  const tts       = useTTS();
 
   useEffect(() => {
     const el = document.createElement("style");
@@ -416,11 +470,13 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      // Always load using the fixed key directly
       try {
         const res = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
+        const text = await res.text();
+        // Show exactly what the load returned
+        alert("LOAD RESPONSE (status " + res.status + "):\n" + text.slice(0, 300));
         if (res.ok) {
-          const data = await res.json();
+          const data = JSON.parse(text);
           const saved = data.state;
           if (saved && saved.messages?.length > 0) {
             setMsgs(saved.messages);
@@ -432,10 +488,12 @@ export default function App() {
             setTimeout(() => setSaveStatus(""), 3000);
             setInit(false);
             return;
+          } else {
+            alert("No saved messages found in state: " + JSON.stringify(data).slice(0, 200));
           }
         }
       } catch(err) {
-        console.warn("Load failed:", err);
+        alert("LOAD ERROR: " + err.message);
       }
       setInit(false);
       await startAdventure();
@@ -490,6 +548,7 @@ export default function App() {
     setMsgs([{ type:"scene", narration }, { type:"dm", text:narration }]);
     setChoices(c);
     setLoading(false);
+    tts.speak(narration);
   }
 
   async function sendAction(action) {
@@ -513,6 +572,7 @@ export default function App() {
     setMsgs(p => [...p, { type:"scene", narration }, { type:"dm", text:narration }]);
     setChoices(c);
     setLoading(false);
+    tts.speak(narration);
   }
 
   function rollManual(sides) {
@@ -627,6 +687,9 @@ export default function App() {
         <div className="top-actions">
           <button className={`top-btn${saveStatus==="✓ Saved!"?" save-active":""}`} onClick={handleManualSave} disabled={loading||messages.length===0}>
             💾 SAVE
+          </button>
+          <button className="top-btn" onClick={()=>{ tts.speaking ? tts.stop() : tts.toggle(); }} title={tts.enabled?"Mute TTS":"Enable TTS"}>
+            {tts.speaking ? "⏹ STOP" : tts.enabled ? "🔊 ON" : "🔇 OFF"}
           </button>
           <button className="top-btn sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 SHEET</button>
         </div>
