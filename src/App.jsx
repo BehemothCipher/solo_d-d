@@ -416,20 +416,29 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const saved = await loadGame(sessionId.current);
-      if (saved && saved.messages?.length > 0) {
-        setMsgs(saved.messages);
-        setHistory(saved.history || []);
-        setHp(saved.hp ?? KAELEN.hp.current);
-        setCombat(saved.inCombat ?? false);
-        setChoices(saved.choices || []);
-        setSaveStatus("Adventure restored!");
-        setTimeout(() => setSaveStatus(""), 3000);
-        setInit(false);
-      } else {
-        setInit(false);
-        await startAdventure();
+      // Always load using the fixed key directly
+      try {
+        const res = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
+        if (res.ok) {
+          const data = await res.json();
+          const saved = data.state;
+          if (saved && saved.messages?.length > 0) {
+            setMsgs(saved.messages);
+            setHistory(saved.history || []);
+            setHp(saved.hp ?? KAELEN.hp.current);
+            setCombat(saved.inCombat ?? false);
+            setChoices(saved.choices || []);
+            setSaveStatus("Adventure restored!");
+            setTimeout(() => setSaveStatus(""), 3000);
+            setInit(false);
+            return;
+          }
+        }
+      } catch(err) {
+        console.warn("Load failed:", err);
       }
+      setInit(false);
+      await startAdventure();
     })();
   }, []);
 
@@ -437,7 +446,21 @@ export default function App() {
     if (messages.length === 0) return;
     setSaveStatus("Saving...");
     try {
-      const state = { messages, history, hp, inCombat, choices };
+      // Only save text messages (not scene images) to keep state small
+      const saveMessages = messages.filter(m => m.type !== "scene");
+      // Only keep last 30 messages to avoid hitting size limits
+      const trimmedMessages = saveMessages.slice(-30);
+      // Only keep last 20 history entries
+      const trimmedHistory = history.slice(-20);
+
+      const state = {
+        messages: trimmedMessages,
+        history: trimmedHistory,
+        hp,
+        inCombat,
+        choices,
+      };
+
       const res = await fetch("/api/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -446,14 +469,13 @@ export default function App() {
       const data = await res.json();
       if (res.ok && data.ok) {
         setSaveStatus("✓ Saved!");
-        alert("SAVE OK — session: solo_dnd_kaelen_v1");
       } else {
         setSaveStatus("✗ Failed");
-        alert("SAVE FAILED: " + JSON.stringify(data));
+        console.warn("Save failed:", data);
       }
     } catch(err) {
       setSaveStatus("✗ Error");
-      alert("SAVE ERROR: " + err.message);
+      console.warn("Save error:", err);
     }
     setTimeout(() => setSaveStatus(""), 3000);
   }
