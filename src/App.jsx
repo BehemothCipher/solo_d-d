@@ -33,11 +33,12 @@ function getSessionId() {
 
 async function saveGame(sessionId, state) {
   try {
-    await fetch("/api/save", {
+    const res = await fetch("/api/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, state }),
     });
+    if (!res.ok) console.warn("Save error:", await res.json());
   } catch (err) { console.warn("Save failed:", err); }
 }
 
@@ -176,7 +177,10 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
 .top-bar{padding:10px 14px;border-bottom:1px solid ${S.border};display:flex;align-items:center;gap:8px;flex-shrink:0;background:${S.panel};}
 .top-title{font-family:'Cinzel',serif;font-size:14px;color:${S.gold};letter-spacing:.04em;}
-.save-badge{font-size:9px;color:${S.green};font-style:italic;margin-left:4px;transition:opacity .3s;}
+.save-badge{font-size:9px;color:${S.green};font-style:italic;margin-left:4px;}
+.save-btn{background:${S.rune};border:1px solid ${S.accentDim};color:${S.accent};font-family:'Cinzel',serif;font-size:10px;padding:4px 10px;border-radius:3px;cursor:pointer;margin-left:8px;transition:all .15s;}
+.save-btn:hover:not(:disabled){background:${S.highlight};border-color:${S.accent};}
+.save-btn:disabled{opacity:.3;cursor:not-allowed;}
 .content{display:flex;flex:1;overflow:hidden;}
 .sidebar{width:220px;min-width:220px;background:${S.panel};border-right:1px solid ${S.border};overflow-y:auto;display:flex;flex-direction:column;}
 .char-head{padding:12px;border-bottom:1px solid ${S.border};}
@@ -221,11 +225,15 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .end-btn{margin-left:auto;background:none;border:1px solid #5a2020;color:#906060;font-size:9px;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:'Cinzel',serif;}
 .end-btn:hover{border-color:${S.red};color:${S.red};}
 .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
-.scene-wrap{position:relative;width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;}
+
+/* Fixed scene image - always takes up space, skeleton shown while loading */
+.scene-wrap{width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;position:relative;}
 .scene-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,${S.bg});pointer-events:none;}
-.scene-img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;transition:opacity .5s ease;}
-.scene-skeleton{width:100%;aspect-ratio:16/9;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
+.scene-img-container{width:100%;aspect-ratio:16/9;position:relative;}
+.scene-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
+.scene-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .6s ease;}
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
 .msg-dm{background:${S.panel};border:1px solid ${S.border};border-left:3px solid ${S.accentDim};border-radius:0 5px 5px 0;padding:11px 13px;font-size:15px;line-height:1.75;color:${S.text};white-space:pre-wrap;}
 .msg-player{background:${S.rune};border:1px solid ${S.border};border-right:3px solid ${S.gold};border-radius:5px 0 0 5px;padding:8px 12px;font-size:13px;color:${S.muted};align-self:flex-end;max-width:80%;font-style:italic;}
 .msg-roll{background:#0a1408;border:1px solid #1e3a18;border-radius:5px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#78b870;}
@@ -274,24 +282,45 @@ function hpColor(cur, max) {
   return p > .6 ? S.green : p > .3 ? S.gold : S.red;
 }
 
+// Fixed SceneImage — container always takes up space, skeleton fades out when image loads
 function SceneImage({ narration }) {
   const [loaded, setLoaded]   = useState(false);
   const [errored, setErrored] = useState(false);
   const [url, setUrl]         = useState("");
+
   useEffect(() => {
-    setLoaded(false); setErrored(false);
-    setUrl(getImageUrl(narration));
+    setLoaded(false);
+    setErrored(false);
+    const seed = Math.floor(Math.random() * 999999);
+    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1280&height=720&nologo=true&model=flux&enhance=true&seed=${seed}`);
   }, [narration]);
+
   if (!url) return null;
+
   return (
     <div className="scene-wrap">
-      {!loaded && !errored && <div className="scene-skeleton"/>}
-      {!errored && (
-        <img src={url} className="scene-img"
-          style={{opacity:loaded?1:0,position:loaded?"relative":"absolute",top:0,left:0}}
-          onLoad={()=>setLoaded(true)} onError={()=>setErrored(true)} alt="Scene"/>
-      )}
-      {errored && <div style={{padding:"16px",textAlign:"center",fontSize:11,color:S.muted,fontStyle:"italic"}}>Scene image unavailable</div>}
+      <div className="scene-img-container">
+        {/* Skeleton always rendered, fades out when image loads */}
+        {!errored && (
+          <div className="scene-skeleton" style={{ opacity: loaded ? 0 : 1, transition: "opacity .6s ease" }} />
+        )}
+        {/* Image always in DOM, fades in when loaded */}
+        {!errored && (
+          <img
+            src={url}
+            className="scene-img"
+            style={{ opacity: loaded ? 1 : 0 }}
+            onLoad={() => setLoaded(true)}
+            onError={() => setErrored(true)}
+            alt="Scene"
+          />
+        )}
+        {errored && (
+          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:S.muted, fontStyle:"italic" }}>
+            Scene image unavailable
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -322,9 +351,9 @@ export default function App() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, loading, choices]);
 
+  // Boot — try to load save, else start fresh
   useEffect(() => {
     (async () => {
-      setInit(true);
       const saved = await loadGame(sessionId.current);
       if (saved && saved.messages?.length > 0) {
         setMsgs(saved.messages);
@@ -342,14 +371,15 @@ export default function App() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (messages.length === 0 || initializing) return;
+  // Manual save function
+  async function handleManualSave() {
+    if (messages.length === 0) return;
+    setSaveStatus("Saving...");
     const state = { messages, history, hp, inCombat, choices };
-    saveGame(sessionId.current, state).then(() => {
-      setSaveStatus("✓ Saved");
-      setTimeout(() => setSaveStatus(""), 2000);
-    });
-  }, [messages, hp, inCombat, choices]);
+    await saveGame(sessionId.current, state);
+    setSaveStatus("✓ Saved!");
+    setTimeout(() => setSaveStatus(""), 2500);
+  }
 
   async function startAdventure() {
     setLoading(true);
@@ -357,9 +387,9 @@ export default function App() {
     const seed = { role:"user", content:"Begin the adventure. Set the scene in the Craghaven mountains near the ruined monastery. Open with an immediate atmospheric moment that puts Kaelen in a situation requiring a decision. End with the JSON choices block." };
     const raw = await callDM([seed]);
     const { narration, choices: c } = parseResponse(raw);
-    const h = [seed, { role:"assistant", content:raw }];
-    const m = [{ type:"scene", narration }, { type:"dm", text:narration }];
-    setHistory(h); setMsgs(m); setChoices(c);
+    setHistory([seed, { role:"assistant", content:raw }]);
+    setMsgs([{ type:"scene", narration }, { type:"dm", text:narration }]);
+    setChoices(c);
     setLoading(false);
   }
 
@@ -382,7 +412,8 @@ export default function App() {
     const { narration, choices: c } = parseResponse(raw);
     setHistory([...newHistory, { role:"assistant", content:raw }]);
     setMsgs(p => [...p, { type:"scene", narration }, { type:"dm", text:narration }]);
-    setChoices(c); setLoading(false);
+    setChoices(c);
+    setLoading(false);
   }
 
   function rollManual(sides) {
@@ -405,7 +436,7 @@ export default function App() {
   const hpClr = hpColor(hp, KAELEN.hp.max);
 
   if (initializing) return (
-    <div className="app" style={{alignItems:"center",justifyContent:"center",gap:16}}>
+    <div className="app" style={{alignItems:"center",justifyContent:"center",gap:16,display:"flex",flexDirection:"column"}}>
       <div style={{fontFamily:"'Cinzel',serif",fontSize:20,color:S.gold}}>⚔ Solo D&D</div>
       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
       <div style={{fontSize:12,color:S.muted,fontStyle:"italic"}}>Restoring your adventure…</div>
@@ -491,7 +522,10 @@ export default function App() {
       <div className="top-bar">
         <span className="top-title">⚔ Solo D&amp;D</span>
         <span style={{fontSize:10,color:S.muted}}>Kaelen · The Slate Ghost</span>
-        {saveStatus && <span className="save-badge">{saveStatus}</span>}
+        {saveStatus
+          ? <span className="save-badge">{saveStatus}</span>
+          : <button className="save-btn" onClick={handleManualSave} disabled={loading || messages.length === 0}>💾 Save</button>
+        }
         <button className="sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 Sheet</button>
       </div>
       <div className="content">
