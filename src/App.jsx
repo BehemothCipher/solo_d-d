@@ -10,11 +10,11 @@ const KAELEN = {
     Insight:3,Intimidation:-1,Investigation:0,Medicine:3,Nature:0,Perception:5,
     Performance:-1,Persuasion:-1,Religion:0,"Sleight of Hand":2,Stealth:6,Survival:5 },
   attacks: [
-    { name:"Shortsword", atkBonus:4, damageDice:6, damageMod:2, type:"P/S", notes:"Finesse, Light. Sneak Attack (1d6)." },
-    { name:"Dagger (Off-hand)", atkBonus:4, damageDice:4, damageMod:0, type:"Piercing", notes:"Bonus Action. Thrown 20/60ft." },
+    { name:"Shortsword", atkBonus:4, damageDice:6, damageMod:2, type:"P/S", notes:"Finesse. Sneak Attack (1d6)." },
+    { name:"Dagger", atkBonus:4, damageDice:4, damageMod:0, type:"Piercing", notes:"Bonus Action. Thrown 20/60ft." },
     { name:"Shortbow", atkBonus:4, damageDice:6, damageMod:2, type:"Piercing", notes:"Range 80/320ft. 20 arrows." },
   ],
-  features:["Sneak Attack (1d6)","Speech of Beast & Leaf","Hidden Step (invisible 1 turn/rest)","Firbolg Magic (Detect Magic / Disguise Self 1/rest)","Thieves' Cant"],
+  features:["Sneak Attack (1d6)","Speech of Beast & Leaf","Hidden Step (invisible 1 turn/rest)","Firbolg Magic (Detect Magic/Disguise Self 1/rest)","Thieves' Cant"],
   inventory:["2× Shortsword","2× Dagger","Shortbow + 20 arrows","Leather Armor","Thieves' Tools","Herbalism Kit"],
 };
 
@@ -22,20 +22,14 @@ const roll     = s => Math.floor(Math.random() * s) + 1;
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
-// Fixed session key — always the same for this device
-// Uses localStorage as backup but falls back to a stable key
+// Fixed session key
 function getSessionId() {
   const FIXED_KEY = "solo_dnd_kaelen_v1";
   try {
     let id = localStorage.getItem("solo_dnd_session");
-    if (!id) {
-      localStorage.setItem("solo_dnd_session", FIXED_KEY);
-      return FIXED_KEY;
-    }
+    if (!id) { localStorage.setItem("solo_dnd_session", FIXED_KEY); return FIXED_KEY; }
     return id;
-  } catch {
-    return FIXED_KEY;
-  }
+  } catch { return FIXED_KEY; }
 }
 
 async function saveGame(sessionId, state) {
@@ -81,12 +75,13 @@ function buildRollResult(type) {
     const dmg = roll(atk.damageDice) + atk.damageMod;
     const sneak = roll(6);
     return {
-      label: "⚔️ Attack Roll — Shortsword",
+      label: "⚔️ Attack — Shortsword",
       lines: [
-        `d20(${d}) + ${atk.atkBonus} = ${total}${nat===20?" 🔥 CRIT":nat===1?" 💀 MISS":""}`,
-        `Damage: ${dmg} ${atk.type}`, `Sneak Attack (if valid): +${sneak}`,
+        `d20(${d}) + ${atk.atkBonus} = ${total}${nat===20?" 🔥 CRIT!":nat===1?" 💀 MISS":""}`,
+        `Damage: ${dmg} ${atk.type}`,
+        `Sneak Attack (if valid): +${sneak}`,
       ],
-      context: `ATTACK: d20=${d}, total=${total}${nat===20?" CRIT":nat===1?" MISS":""}, dmg=${dmg} ${atk.type}, sneak=${sneak}`,
+      context: `ATTACK: d20=${d}, total=${total}${nat===20?" CRIT":nat===1?" MISS":""}, dmg=${dmg}, sneak=${sneak}`,
     };
   }
   const skillMap = {
@@ -106,54 +101,55 @@ function buildRollResult(type) {
 
 function buildImagePrompt(narration) {
   const l = narration.toLowerCase();
-  const base = "dark fantasy RPG digital art, cinematic painterly style, dramatic lighting, detailed, no text, no watermark";
+  const base = "dark fantasy JRPG art, Final Fantasy style, painterly, cinematic, dramatic lighting, highly detailed, no text, no watermark, widescreen";
   let scene = "";
   if (/combat|attack|fight|strike|sword|blade|blood|wound|enemy|creature|beast|monster/.test(l))
-    scene = "intense melee combat scene in dark stone ruins, warrior with shortsword, dynamic action pose, moonlight and torchlight";
+    scene = "epic battle scene, warrior rogue with shortsword fighting shadowy enemy in ruins, dynamic action pose, dramatic lighting";
   else if (/vault|door|rune|seal|glow|ancient|magic|arcane/.test(l))
-    scene = "ancient underground stone vault door covered in glowing green runes, torchlight, mossy walls, mysterious atmosphere";
+    scene = "ancient sealed stone vault door with glowing magical runes, underground chamber, torchlight, mysterious";
   else if (/stealth|shadow|sneak|hide|invisible|creep|silent/.test(l))
-    scene = "hooded rogue creeping silently through dark stone corridor, long dramatic shadows, single torch on wall, mist on ground";
-  else if (/monastery|chapel|altar|shrine|pew|reli/.test(l))
-    scene = "crumbling gothic monastery interior at night, broken stone pillars, moonlight through shattered windows, eerie atmosphere";
-  else if (/forest|tree|wood|branch|leaf|nature|animal/.test(l))
-    scene = "dark misty mountain forest at night, ancient twisted trees, bioluminescent fungi, fog between trunks";
-  else if (/mountain|cliff|peak|summit|vista|overlook/.test(l))
-    scene = "massive grey-green firbolg warrior on misty mountain cliff, crumbling monastery far below, crescent moon, atmospheric fog";
-  else if (/cave|tunnel|underground|cavern|passage/.test(l))
-    scene = "dark underground stone cavern with glowing crystal formations, narrow passage, torchlight flickering on wet walls";
-  else if (/village|town|settlement|people|crowd|merchant/.test(l))
-    scene = "dark gloomy medieval village at night, cobblestone streets, lantern light, shadowy figures, mist";
+    scene = "cloaked rogue moving silently through dark stone corridor, long shadows, single torch, mist on ground";
+  else if (/monastery|chapel|altar|shrine/.test(l))
+    scene = "ruined gothic monastery interior, broken pillars, moonlight through shattered stained glass, eerie";
+  else if (/forest|tree|wood|nature|animal/.test(l))
+    scene = "ancient dark misty mountain forest, twisted trees, bioluminescent plants, fog";
+  else if (/mountain|cliff|peak|summit/.test(l))
+    scene = "grey-green firbolg rogue on misty mountain cliff at night, ruined monastery below, crescent moon";
+  else if (/cave|tunnel|underground|cavern/.test(l))
+    scene = "dark underground stone cavern, glowing crystals, narrow passage, torchlight on wet walls";
+  else if (/village|town|settlement|crowd/.test(l))
+    scene = "dark medieval village at night, cobblestone, lanterns, shadowy figures, mist";
   else
-    scene = "massive grey-green firbolg rogue exploring ruined stone monastery at night, crescent moon, torchlight, misty mountain setting";
-  return encodeURIComponent(`${scene}, ${base}`);
+    scene = "grey-green firbolg rogue in ruined mountain monastery at night, crescent moon, torches, misty";
+  return `${scene}, ${base}`;
 }
 
 function getImageUrl(narration) {
-  const seed = Math.floor(Math.random() * 999999);
-  return `https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1280&height=720&nologo=true&model=flux&enhance=true&seed=${seed}`;
+  return `/api/image?prompt=${encodeURIComponent(buildImagePrompt(narration))}`;
 }
 
-const DM_SYSTEM = `You are a dramatic, immersive Dungeon Master for a solo D&D 5e story-driven campaign. The player controls Kaelen, The Slate Ghost — a Neutral Evil Firbolg Rogue (Level 1). Cast out by his clan, trained in stealth among mountain predators, he carries a secret about the natural earth.
+const DM_SYSTEM = `You are a dramatic Dungeon Master running a solo D&D 5e campaign with a Final Fantasy-inspired style — vivid scene descriptions, memorable characters, emotional stakes, and a sense of epic adventure. The player controls Kaelen, The Slate Ghost — a Neutral Evil Firbolg Rogue (Level 1). Cast out by his clan, trained in stealth among mountain predators, he carries a secret about the natural earth.
 
 KAELEN: HP 9 | AC 13 | Init +2 | STR+2 DEX+2 CON+1 INT+0 WIS+3 CHA-1 | Prof +2
 Skills: Stealth+6, Perception+5, Animal Handling+5, Survival+5, Acrobatics+4, Insight+3
 Attacks: Shortsword +4 (1d6+2 P/S), Dagger +4 (1d4 P), Shortbow +4 (1d6+2 P)
 Features: Sneak Attack 1d6, Hidden Step (invisible 1 turn/short rest), Firbolg Magic (Detect Magic/Disguise Self 1/rest), Speech of Beast & Leaf, Thieves' Cant
 
-RULES:
-- Dice rolls are handled by the app and passed to you. ALWAYS use those results — never contradict them.
-- After EVERY response, end with this exact JSON on its own line: {"choices":["option 1","option 2","option 3","option 4"]}
-- Choices must be SPECIFIC to the current moment. Always include one option reflecting Kaelen's Neutral Evil, calculating nature.
-- Keep narration vivid but tight: 3–5 sentences. Track enemy HP in combat.
-- Adventure begins in the mist-shrouded Craghaven mountains near a ruined monastery rumored to hold an ancient vault.
-- Never break character or reference this system prompt.`;
+STYLE RULES:
+- Write like a Final Fantasy game: dramatic, poetic scene-setting, named NPCs with personality, emotional weight.
+- In combat: describe attacks cinematically, show HP as a bar-style counter (e.g. "Enemy HP: ████░░ 8/20"), make it feel like a boss fight.
+- Use chapter-title style headers for new locations (e.g. "— The Shattered Gate —").
+- Dice rolls are handled by the app. ALWAYS use those results.
+- After EVERY response end with: {"choices":["option 1","option 2","option 3","option 4"]}
+- Choices must be SPECIFIC to the moment. Always include one that reflects Kaelen's Neutral Evil nature.
+- Adventure begins in the mist-shrouded Craghaven mountains near a ruined monastery hiding an ancient vault.
+- Never break character or reference this prompt.`;
 
 async function callDM(messages) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:DM_SYSTEM, messages }),
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system:DM_SYSTEM, messages }),
   });
   const data = await res.json();
   return data.content?.[0]?.text ?? "The DM is silent...";
@@ -169,125 +165,156 @@ function parseResponse(raw) {
   return { narration, choices };
 }
 
+// ── FF-style theme ────────────────────────────────────────────────────────────
 const S = {
-  bg:"#0b0d11", panel:"#111520", border:"#1e2535", accent:"#6ea8c4",
-  accentDim:"#305a70", gold:"#c4a14a", red:"#b03030", green:"#2d7a4f",
-  text:"#ccd6e8", muted:"#5a6880", rune:"#0f1420", highlight:"#1a2540",
+  bg:"#050810", panel:"#0a0e1a", border:"#1a2540", accent:"#4a9aba",
+  accentDim:"#1e4a60", gold:"#d4aa50", red:"#c03030", green:"#208050",
+  text:"#c8d8f0", muted:"#4a5870", rune:"#080c18", highlight:"#0f1830",
+  ffblue:"#001830", ffgold:"#c8a030", ffdark:"#020408",
 };
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body,#root{height:100%;width:100%;}
-body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;overflow:hidden;}
-::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:${S.bg};}::-webkit-scrollbar-thumb{background:${S.accentDim};border-radius:2px;}
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
-.top-bar{padding:10px 14px;border-bottom:1px solid ${S.border};display:flex;align-items:center;gap:8px;flex-shrink:0;background:${S.panel};}
-.top-title{font-family:'Cinzel',serif;font-size:14px;color:${S.gold};letter-spacing:.04em;}
-.save-badge{font-size:9px;color:${S.green};font-style:italic;margin-left:4px;}
-.save-btn{background:${S.rune};border:1px solid ${S.accentDim};color:${S.accent};font-family:'Cinzel',serif;font-size:10px;padding:4px 10px;border-radius:3px;cursor:pointer;margin-left:8px;transition:all .15s;}
-.save-btn:hover:not(:disabled){background:${S.highlight};border-color:${S.accent};}
-.save-btn:disabled{opacity:.3;cursor:not-allowed;}
-.content{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:220px;min-width:220px;background:${S.panel};border-right:1px solid ${S.border};overflow-y:auto;display:flex;flex-direction:column;}
-.char-head{padding:12px;border-bottom:1px solid ${S.border};}
-.char-name{font-family:'Cinzel',serif;font-size:13px;color:${S.accent};}
-.char-sub{font-size:9px;color:${S.muted};margin-top:2px;letter-spacing:.06em;text-transform:uppercase;}
-.sec{padding:9px 12px;border-bottom:1px solid ${S.border};}
-.sec-title{font-size:7px;color:${S.accentDim};text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;font-family:'Cinzel',serif;}
-.hp-num{font-family:'Cinzel',serif;font-size:18px;text-align:center;margin-bottom:3px;}
-.hp-label{font-size:8px;color:${S.muted};display:flex;justify-content:space-between;margin-bottom:4px;}
-.hp-track{height:6px;background:#0f1520;border-radius:3px;overflow:hidden;}
-.hp-fill{height:100%;border-radius:3px;transition:width .4s ease;}
-.hp-btns{display:flex;gap:4px;margin-top:6px;}
-.hp-btn{flex:1;background:${S.rune};border:1px solid ${S.border};color:${S.muted};font-size:9px;padding:4px 0;border-radius:3px;cursor:pointer;font-family:'Cinzel',serif;transition:all .15s;}
-.hp-btn:hover{border-color:${S.accent};color:${S.accent};}
-.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
-.stat-box{background:${S.rune};border:1px solid ${S.border};border-radius:3px;text-align:center;padding:5px 2px;}
-.stat-label{font-size:6px;color:${S.muted};text-transform:uppercase;}
-.stat-mod{font-family:'Cinzel',serif;font-size:14px;color:${S.accent};line-height:1.1;}
-.stat-score{font-size:8px;color:${S.muted};}
-.mini-stats{display:flex;justify-content:space-around;margin-top:7px;}
-.mini-stat{text-align:center;}
-.skill-row{display:flex;justify-content:space-between;font-size:10px;padding:1px 0;}
-.skill-val{font-family:'JetBrains Mono',monospace;font-size:9px;color:${S.gold};}
-.atk-card{background:${S.rune};border:1px solid ${S.border};border-radius:3px;padding:6px 8px;margin-bottom:4px;cursor:pointer;transition:border-color .15s;}
-.atk-card:hover{border-color:${S.accent};}
-.atk-name{font-family:'Cinzel',serif;font-size:10px;color:${S.accent};}
-.atk-stats{font-family:'JetBrains Mono',monospace;font-size:8px;color:${S.gold};margin-top:1px;}
-.atk-note{font-size:8px;color:${S.muted};margin-top:2px;font-style:italic;}
-.feat-item{font-size:9px;color:${S.muted};padding:2px 0;border-bottom:1px solid ${S.rune};}
-.feat-item:last-child{border-bottom:none;}
-.inv-item{font-size:9px;color:${S.text};padding:1px 0;}
-.dice-row{display:flex;flex-wrap:wrap;gap:4px;}
-.die-btn{background:${S.rune};border:1px solid ${S.border};color:${S.gold};font-family:'Cinzel',serif;font-size:9px;padding:4px 7px;border-radius:3px;cursor:pointer;}
-.die-btn:hover{border-color:${S.gold};}
-.last-roll{font-family:'JetBrains Mono',monospace;font-size:9px;color:${S.muted};margin-top:4px;}
-.new-game-btn{margin:10px 12px;background:${S.rune};border:1px solid #3a2020;color:#906060;font-family:'Cinzel',serif;font-size:10px;padding:7px;border-radius:4px;cursor:pointer;text-align:center;transition:all .15s;}
-.new-game-btn:hover{border-color:${S.red};color:${S.red};}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
-.combat-banner{background:#160a0a;border-bottom:1px solid #3a1515;padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.combat-badge{background:${S.red};color:#fff;font-family:'Cinzel',serif;font-size:8px;padding:2px 6px;border-radius:2px;letter-spacing:.1em;}
-.combat-info{font-size:10px;color:#c09090;}
-.end-btn{margin-left:auto;background:none;border:1px solid #5a2020;color:#906060;font-size:9px;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:'Cinzel',serif;}
-.end-btn:hover{border-color:${S.red};color:${S.red};}
-.log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;overflow:hidden;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:${S.ffdark};}::-webkit-scrollbar-thumb{background:${S.accentDim};border-radius:2px;}
 
-/* Fixed scene image - always takes up space, skeleton shown while loading */
-.scene-wrap{width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;}
-.scene-img-container{width:100%;padding-top:56.25%;position:relative;}
-.scene-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
-.scene-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:opacity .6s ease;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+/* FF-style top bar */
+.top-bar{padding:0;border-bottom:2px solid ${S.ffgold};display:flex;align-items:stretch;flex-shrink:0;background:linear-gradient(180deg,#0a1428 0%,#050810 100%);}
+.top-bar-inner{display:flex;align-items:center;gap:10px;padding:8px 14px;flex:1;}
+.top-title{font-family:'Cinzel',serif;font-size:15px;color:${S.ffgold};letter-spacing:.08em;text-shadow:0 0 20px rgba(212,170,80,.4);}
+.top-subtitle{font-size:10px;color:${S.muted};letter-spacing:.06em;}
+.top-actions{display:flex;gap:0;border-left:1px solid ${S.border};}
+.top-btn{background:none;border:none;border-left:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:0 14px;cursor:pointer;transition:all .15s;letter-spacing:.06em;display:flex;align-items:center;gap:5px;}
+.top-btn:hover{color:${S.ffgold};background:rgba(212,170,80,.05);}
+.top-btn.save-active{color:${S.green};}
+.save-badge{font-size:9px;color:${S.green};font-style:italic;}
+
+.content{display:flex;flex:1;overflow:hidden;}
+
+/* FF-style sidebar */
+.sidebar{width:200px;min-width:200px;background:linear-gradient(180deg,#080d1c 0%,#050810 100%);border-right:1px solid ${S.border};overflow-y:auto;display:flex;flex-direction:column;}
+.char-head{padding:12px 10px;border-bottom:1px solid ${S.border};background:linear-gradient(180deg,#0d1530 0%,transparent 100%);}
+.char-portrait{width:48px;height:48px;border-radius:50%;border:2px solid ${S.ffgold};background:linear-gradient(135deg,#1a2540,#0a1020);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 8px;}
+.char-name{font-family:'Cinzel',serif;font-size:11px;color:${S.accent};text-align:center;letter-spacing:.06em;}
+.char-sub{font-size:8px;color:${S.muted};text-align:center;margin-top:1px;text-transform:uppercase;letter-spacing:.08em;}
+
+/* FF-style HP bar */
+.ff-stat-row{display:flex;justify-content:space-between;align-items:center;font-size:9px;padding:2px 0;}
+.ff-stat-label{color:${S.ffgold};font-family:'Cinzel',serif;letter-spacing:.06em;}
+.ff-stat-val{color:${S.text};font-family:'JetBrains Mono',monospace;}
+.ff-bar{height:5px;background:#0a1020;border-radius:2px;overflow:hidden;margin:2px 0 6px;}
+.ff-bar-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+
+.sec{padding:8px 10px;border-bottom:1px solid ${S.border};}
+.sec-title{font-size:7px;color:${S.accentDim};text-transform:uppercase;letter-spacing:.15em;margin-bottom:5px;font-family:'Cinzel',serif;}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;}
+.stat-box{background:${S.rune};border:1px solid ${S.border};border-radius:2px;text-align:center;padding:4px 2px;}
+.stat-label{font-size:6px;color:${S.muted};text-transform:uppercase;}
+.stat-mod{font-family:'Cinzel',serif;font-size:13px;color:${S.accent};line-height:1.1;}
+.stat-score{font-size:7px;color:${S.muted};}
+.mini-stats{display:flex;justify-content:space-around;margin-top:6px;}
+.mini-stat{text-align:center;}
+.skill-row{display:flex;justify-content:space-between;font-size:9px;padding:1px 0;}
+.skill-val{font-family:'JetBrains Mono',monospace;font-size:8px;color:${S.ffgold};}
+
+/* FF attack cards */
+.atk-card{background:linear-gradient(135deg,${S.rune},#0a0e1a);border:1px solid ${S.border};border-radius:2px;padding:5px 7px;margin-bottom:3px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.atk-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:${S.ffgold};opacity:0;transition:opacity .15s;}
+.atk-card:hover{border-color:${S.ffgold};}.atk-card:hover::before{opacity:1;}
+.atk-name{font-family:'Cinzel',serif;font-size:9px;color:${S.accent};}
+.atk-stats{font-family:'JetBrains Mono',monospace;font-size:7px;color:${S.ffgold};margin-top:1px;}
+.atk-note{font-size:7px;color:${S.muted};margin-top:1px;font-style:italic;}
+.feat-item{font-size:8px;color:${S.muted};padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03);}
+.feat-item:last-child{border-bottom:none;}
+.inv-item{font-size:8px;color:${S.text};padding:1px 0;}
+.dice-row{display:flex;flex-wrap:wrap;gap:3px;}
+.die-btn{background:${S.rune};border:1px solid ${S.border};color:${S.ffgold};font-family:'Cinzel',serif;font-size:8px;padding:3px 6px;border-radius:2px;cursor:pointer;transition:all .15s;}
+.die-btn:hover{border-color:${S.ffgold};background:#0f1020;}
+.last-roll{font-family:'JetBrains Mono',monospace;font-size:8px;color:${S.muted};margin-top:3px;}
+.new-game-btn{margin:8px 10px;background:${S.rune};border:1px solid #3a1515;color:#806060;font-family:'Cinzel',serif;font-size:9px;padding:6px;border-radius:2px;cursor:pointer;text-align:center;transition:all .15s;}
+.new-game-btn:hover{border-color:${S.red};color:${S.red};}
+
+/* Main area */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.combat-banner{background:linear-gradient(90deg,#200808,#100408);border-bottom:1px solid #4a1010;padding:5px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.combat-badge{background:${S.red};color:#fff;font-family:'Cinzel',serif;font-size:8px;padding:2px 6px;border-radius:1px;letter-spacing:.12em;}
+.combat-info{font-size:10px;color:#c08080;font-style:italic;}
+.end-btn{margin-left:auto;background:none;border:1px solid #5a1515;color:#805050;font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;font-family:'Cinzel',serif;}
+.end-btn:hover{border-color:${S.red};color:${S.red};}
+
+.log{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column;}
+
+/* FF-style scene image — full bleed */
+.scene-wrap{width:100%;flex-shrink:0;position:relative;background:#050810;}
+.scene-img-container{width:100%;padding-top:42%;position:relative;overflow:hidden;}
+.scene-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,#050810 25%,#0a1020 50%,#050810 75%);background-size:200% 100%;animation:shimmer 2s infinite;}
+.scene-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:opacity .8s ease;}
+.scene-overlay{position:absolute;inset:0;background:linear-gradient(0deg,${S.ffdark} 0%,transparent 40%,transparent 70%,rgba(5,8,16,.6) 100%);pointer-events:none;}
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
-.msg-dm{background:${S.panel};border:1px solid ${S.border};border-left:3px solid ${S.accentDim};border-radius:0 5px 5px 0;padding:11px 13px;font-size:15px;line-height:1.75;color:${S.text};white-space:pre-wrap;}
-.msg-player{background:${S.rune};border:1px solid ${S.border};border-right:3px solid ${S.gold};border-radius:5px 0 0 5px;padding:8px 12px;font-size:13px;color:${S.muted};align-self:flex-end;max-width:80%;font-style:italic;}
-.msg-roll{background:#0a1408;border:1px solid #1e3a18;border-radius:5px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#78b870;}
-.roll-title{color:#9aca90;font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
-.msg-sys{text-align:center;font-size:9px;color:${S.accentDim};font-style:italic;padding:2px;}
-.choices-wrap{padding:10px 14px 0;flex-shrink:0;}
-.choices-label{font-size:8px;color:${S.accentDim};text-transform:uppercase;letter-spacing:.15em;margin-bottom:7px;font-family:'Cinzel',serif;}
-.choices-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.choice-btn{background:${S.highlight};border:1px solid ${S.border};color:${S.text};font-size:13px;padding:9px 11px;border-radius:5px;cursor:pointer;text-align:left;font-family:'Crimson Pro',serif;line-height:1.4;transition:all .15s;}
-.choice-btn:hover:not(:disabled){border-color:${S.accent};color:${S.accent};}
-.choice-btn:active:not(:disabled){background:#243050;}
+/* FF-style dialogue box */
+.msg-dm{background:linear-gradient(180deg,rgba(8,14,28,.98) 0%,rgba(5,10,22,.98) 100%);border-top:1px solid ${S.border};border-bottom:1px solid ${S.border};padding:14px 18px 10px;font-size:15px;line-height:1.8;color:${S.text};white-space:pre-wrap;position:relative;}
+.msg-dm::before{content:'▶';position:absolute;bottom:8px;right:12px;font-size:8px;color:${S.ffgold};animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
+.msg-player{background:rgba(10,18,40,.6);border-left:2px solid ${S.ffgold};padding:6px 12px;font-size:12px;color:${S.muted};font-style:italic;margin:0 18px;}
+.msg-roll{background:linear-gradient(135deg,rgba(5,20,10,.9),rgba(8,25,15,.9));border:1px solid #1a4020;border-left:3px solid #30a050;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#70c080;margin:0 0;}
+.roll-title{color:#90d0a0;font-size:9px;text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;font-family:'Cinzel',serif;}
+.msg-sys{text-align:center;font-size:9px;color:${S.accentDim};font-style:italic;padding:4px;background:${S.ffdark};}
+
+/* FF-style choices — like ATB menu */
+.choices-wrap{flex-shrink:0;background:linear-gradient(180deg,rgba(5,8,16,.0) 0%,rgba(5,8,16,1) 15%);padding:0 0 0;}
+.choices-label{font-size:8px;color:${S.ffgold};text-transform:uppercase;letter-spacing:.2em;padding:8px 14px 6px;font-family:'Cinzel',serif;border-top:1px solid ${S.border};}
+.choices-grid{display:grid;grid-template-columns:1fr;gap:1px;background:${S.border};}
+.choice-btn{background:linear-gradient(90deg,${S.ffblue},${S.panel});color:${S.text};font-size:13px;padding:10px 18px;cursor:pointer;text-align:left;font-family:'Crimson Pro',serif;line-height:1.4;transition:all .1s;border:none;position:relative;display:flex;align-items:center;gap:10px;}
+.choice-btn::before{content:'▷';color:${S.ffgold};font-size:10px;opacity:0;transition:opacity .1s;}
+.choice-btn:hover:not(:disabled){background:linear-gradient(90deg,#0a1840,#0f1e38);color:${S.ffgold};}
+.choice-btn:hover::before{opacity:1;}
+.choice-btn:active:not(:disabled){background:#0a1428;}
 .choice-btn:disabled{opacity:.4;cursor:not-allowed;}
-.input-area{padding:10px 14px 12px;border-top:1px solid ${S.border};background:${S.panel};flex-shrink:0;}
+
+/* FF input bar */
+.input-area{padding:8px 14px 10px;border-top:2px solid ${S.border};background:linear-gradient(180deg,#080d1c,#050810);flex-shrink:0;}
 .input-row{display:flex;gap:7px;}
-.txt-input{flex:1;background:${S.rune};border:1px solid ${S.border};color:${S.text};padding:9px 12px;border-radius:5px;font-family:'Crimson Pro',serif;font-size:15px;outline:none;transition:border-color .15s;}
-.txt-input:focus{border-color:${S.accentDim};}
+.txt-input{flex:1;background:${S.ffblue};border:1px solid ${S.accentDim};color:${S.text};padding:8px 12px;border-radius:2px;font-family:'Crimson Pro',serif;font-size:14px;outline:none;transition:border-color .15s;}
+.txt-input:focus{border-color:${S.ffgold};}
 .txt-input::placeholder{color:${S.muted};font-style:italic;}
-.send-btn{background:${S.accentDim};border:none;color:#fff;padding:9px 16px;border-radius:5px;font-family:'Cinzel',serif;font-size:11px;cursor:pointer;transition:background .15s;white-space:nowrap;}
-.send-btn:hover:not(:disabled){background:${S.accent};}
-.send-btn:disabled{opacity:.35;cursor:not-allowed;}
-.sheet-toggle{background:${S.rune};border:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:4px 10px;border-radius:3px;cursor:pointer;margin-left:8px;}
-.sheet-toggle:hover{border-color:${S.accent};color:${S.accent};}
-.typing{display:flex;gap:4px;align-items:center;padding:4px 0;}
-.dot{width:5px;height:5px;background:${S.accentDim};border-radius:50%;animation:pulse 1.2s infinite;}
-.dot:nth-child(2){animation-delay:.2s;}.dot:nth-child(3){animation-delay:.4s;}
-@keyframes pulse{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-.msg-dm,.msg-player,.msg-roll,.choices-wrap,.scene-wrap{animation:fadeUp .3s ease;}
+.send-btn{background:linear-gradient(135deg,${S.accentDim},#1a3a50);border:1px solid ${S.accent};color:${S.text};padding:8px 16px;border-radius:2px;font-family:'Cinzel',serif;font-size:11px;cursor:pointer;transition:all .15s;letter-spacing:.04em;}
+.send-btn:hover:not(:disabled){background:linear-gradient(135deg,${S.accent},#2a5a70);color:#fff;}
+.send-btn:disabled{opacity:.3;cursor:not-allowed;}
+.sheet-toggle{background:none;border:none;border-left:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:0 14px;cursor:pointer;transition:all .15s;letter-spacing:.06em;}
+.sheet-toggle:hover{color:${S.ffgold};}
+
+.typing{display:flex;gap:5px;align-items:center;padding:6px 0;}
+.dot{width:4px;height:4px;background:${S.ffgold};border-radius:50%;animation:pulse 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.25s;}.dot:nth-child(3){animation-delay:.5s;}
+@keyframes pulse{0%,80%,100%{opacity:.15;}40%{opacity:1;}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.msg-dm,.msg-player,.msg-roll,.scene-wrap{animation:fadeUp .3s ease;}
+
+/* sidebar responsive */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99;}
 @media(max-width:600px){
-  .sidebar{position:fixed;top:0;left:0;height:100%;z-index:100;width:260px;transform:translateX(-100%);transition:transform .25s ease;}
+  .sidebar{position:fixed;top:0;left:0;height:100%;z-index:100;width:240px;transform:translateX(-100%);transition:transform .25s ease;}
   .sidebar.open{transform:translateX(0);}
-  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;}
   .sidebar-overlay.open{display:block;}
-  .choices-grid{grid-template-columns:1fr;}
   .msg-dm{font-size:14px;}
-  .choice-btn{font-size:13px;padding:10px 12px;}
+  .choice-btn{font-size:13px;}
 }
 @media(min-width:601px){
   .sheet-toggle{display:none;}
-  .sidebar-overlay{display:none!important;}
 }
 `;
 
 function hpColor(cur, max) {
   const p = cur / max;
-  return p > .6 ? S.green : p > .3 ? S.gold : S.red;
+  return p > .5 ? S.green : p > .25 ? S.ffgold : S.red;
 }
 
+// Image component using our proxy
 function SceneImage({ narration }) {
   const [loaded, setLoaded]   = useState(false);
   const [errored, setErrored] = useState(false);
@@ -298,14 +325,15 @@ function SceneImage({ narration }) {
     setLoaded(false);
     setErrored(false);
     setAttempt(0);
-    setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${Math.floor(Math.random()*999999)}`);
+    setUrl(getImageUrl(narration));
   }, [narration]);
 
   function handleError() {
     if (attempt < 2) {
       setAttempt(a => a + 1);
       setLoaded(false);
-      setUrl(`https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1024&height=576&nologo=true&model=flux&seed=${Math.floor(Math.random()*999999)}`);
+      // Add cache-bust to force new request
+      setUrl(getImageUrl(narration) + `&t=${Date.now()}`);
     } else {
       setErrored(true);
     }
@@ -316,9 +344,9 @@ function SceneImage({ narration }) {
   return (
     <div className="scene-wrap">
       <div className="scene-img-container">
-        {/* Skeleton always in DOM, hidden once loaded */}
-        {!errored && <div className="scene-skeleton" style={{opacity: loaded ? 0 : 1, transition:"opacity .6s ease"}}/>}
-        {/* Image sits on top via position:absolute (set in CSS) */}
+        {!errored && (
+          <div className="scene-skeleton" style={{opacity: loaded ? 0 : 1, transition:"opacity .8s ease"}}/>
+        )}
         {!errored && (
           <img
             key={url}
@@ -330,9 +358,10 @@ function SceneImage({ narration }) {
             alt="Scene"
           />
         )}
+        {!errored && <div className="scene-overlay"/>}
         {errored && (
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:S.muted,fontStyle:"italic"}}>
-            Scene unavailable
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:S.muted,fontStyle:"italic",background:S.ffdark}}>
+            —
           </div>
         )}
       </div>
@@ -366,7 +395,6 @@ export default function App() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, loading, choices]);
 
-  // Boot — try to load save, else start fresh
   useEffect(() => {
     (async () => {
       const saved = await loadGame(sessionId.current);
@@ -386,7 +414,6 @@ export default function App() {
     })();
   }, []);
 
-  // Manual save function
   async function handleManualSave() {
     if (messages.length === 0) return;
     setSaveStatus("Saving...");
@@ -399,7 +426,7 @@ export default function App() {
   async function startAdventure() {
     setLoading(true);
     setMsgs([]); setHistory([]); setChoices([]); setCombat(false); setHp(KAELEN.hp.current);
-    const seed = { role:"user", content:"Begin the adventure. Set the scene in the Craghaven mountains near the ruined monastery. Open with an immediate atmospheric moment that puts Kaelen in a situation requiring a decision. End with the JSON choices block." };
+    const seed = { role:"user", content:"Begin the adventure with Final Fantasy-style drama. Set the scene at the Craghaven mountains near the ruined monastery — use a chapter title header, vivid atmospheric prose, and place Kaelen in an immediate situation. End with the JSON choices block." };
     const raw = await callDM([seed]);
     const { narration, choices: c } = parseResponse(raw);
     setHistory([seed, { role:"assistant", content:raw }]);
@@ -421,7 +448,7 @@ export default function App() {
       rollCtx = `\n\nDICE RESULT: ${result.context}`;
     }
     if (/attack|fight|engage|charge|ambush/.test(action.toLowerCase())) setCombat(true);
-    const userMsg = { role:"user", content:`Player action: "${action}"${rollCtx}\n\nNarrate what happens. End with the JSON choices block for this exact situation.` };
+    const userMsg = { role:"user", content:`Player action: "${action}"${rollCtx}\n\nNarrate with Final Fantasy-style drama. End with the JSON choices block.` };
     const newHistory = [...history, userMsg];
     const raw = await callDM(newHistory);
     const { narration, choices: c } = parseResponse(raw);
@@ -451,32 +478,32 @@ export default function App() {
   const hpClr = hpColor(hp, KAELEN.hp.max);
 
   if (initializing) return (
-    <div className="app" style={{alignItems:"center",justifyContent:"center",gap:16,display:"flex",flexDirection:"column"}}>
-      <div style={{fontFamily:"'Cinzel',serif",fontSize:20,color:S.gold}}>⚔ Solo D&D</div>
+    <div className="app" style={{alignItems:"center",justifyContent:"center",gap:20,display:"flex",flexDirection:"column",background:S.ffdark}}>
+      <div style={{fontFamily:"'Cinzel',serif",fontSize:22,color:S.ffgold,letterSpacing:".1em",textShadow:"0 0 30px rgba(212,170,80,.5)"}}>⚔ SOLO D&D</div>
       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
-      <div style={{fontSize:12,color:S.muted,fontStyle:"italic"}}>Restoring your adventure…</div>
+      <div style={{fontSize:11,color:S.muted,fontStyle:"italic",letterSpacing:".08em"}}>LOADING SAVE DATA...</div>
     </div>
   );
 
   const Sidebar = (
     <div className={`sidebar${sheetOpen?" open":""}`}>
       <div className="char-head">
+        <div className="char-portrait">⚔️</div>
         <div className="char-name">{KAELEN.name}</div>
         <div className="char-sub">{KAELEN.title}</div>
-        <div className="char-sub" style={{color:S.muted,marginTop:2}}>{KAELEN.race} {KAELEN.class} · Lv{KAELEN.level}</div>
-      </div>
-      <div className="sec">
-        <div className="hp-num" style={{color:hpClr}}>{hp} / {KAELEN.hp.max}</div>
-        <div className="hp-label"><span>Hit Points</span><span style={{color:hpClr}}>{Math.round(hpPct)}%</span></div>
-        <div className="hp-track"><div className="hp-fill" style={{width:`${hpPct}%`,background:hpClr}}/></div>
-        <div className="hp-btns">
-          {[["−1",()=>setHp(p=>Math.max(0,p-1))],["+1",()=>setHp(p=>Math.min(KAELEN.hp.max,p+1))],["Full",()=>setHp(KAELEN.hp.max)]].map(([l,fn])=>(
-            <button key={l} className="hp-btn" onClick={fn}>{l}</button>
-          ))}
+        <div className="char-sub" style={{color:S.muted,marginTop:1}}>{KAELEN.race} {KAELEN.class} · Lv{KAELEN.level}</div>
+        <div style={{marginTop:8}}>
+          <div className="ff-stat-row"><span className="ff-stat-label">HP</span><span className="ff-stat-val">{hp}/{KAELEN.hp.max}</span></div>
+          <div className="ff-bar"><div className="ff-bar-fill" style={{width:`${hpPct}%`,background:hpClr}}/></div>
+          <div style={{display:"flex",gap:3}}>
+            {[["−",()=>setHp(p=>Math.max(0,p-1))],["+",()=>setHp(p=>Math.min(KAELEN.hp.max,p+1))],["MAX",()=>setHp(KAELEN.hp.max)]].map(([l,fn])=>(
+              <button key={l} style={{flex:1,background:S.rune,border:`1px solid ${S.border}`,color:S.muted,fontSize:8,padding:"3px 0",borderRadius:2,cursor:"pointer",fontFamily:"'Cinzel',serif"}} onClick={fn}>{l}</button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="sec">
-        <div className="sec-title">Ability Scores</div>
+        <div className="sec-title">Stats</div>
         <div className="stat-grid">
           {Object.entries(KAELEN.stats).map(([k,v])=>(
             <div className="stat-box" key={k}>
@@ -490,19 +517,19 @@ export default function App() {
           {[["AC",KAELEN.ac],["Init",fmt(KAELEN.initiative)],["Spd",KAELEN.speed],["Prof",fmt(KAELEN.profBonus)]].map(([l,v])=>(
             <div className="mini-stat" key={l}>
               <div className="stat-label">{l}</div>
-              <div className="stat-mod" style={{fontSize:12}}>{v}</div>
+              <div className="stat-mod" style={{fontSize:11}}>{v}</div>
             </div>
           ))}
         </div>
       </div>
       <div className="sec">
-        <div className="sec-title">Key Skills</div>
-        {["Stealth","Perception","Animal Handling","Survival","Acrobatics","Insight","Athletics"].map(s=>(
+        <div className="sec-title">Skills</div>
+        {["Stealth","Perception","Animal Handling","Survival","Acrobatics","Insight"].map(s=>(
           <div className="skill-row" key={s}><span>{s}</span><span className="skill-val">{fmt(KAELEN.skills[s])}</span></div>
         ))}
       </div>
       <div className="sec">
-        <div className="sec-title">Attacks — tap to roll</div>
+        <div className="sec-title">Attacks</div>
         {KAELEN.attacks.map(a=>(
           <div className="atk-card" key={a.name} onClick={()=>handleAttackCard(a)}>
             <div className="atk-name">{a.name}</div>
@@ -520,28 +547,32 @@ export default function App() {
         {KAELEN.inventory.map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
       </div>
       <div className="sec">
-        <div className="sec-title">Manual Dice</div>
+        <div className="sec-title">Dice</div>
         <div className="dice-row">
           {[4,6,8,10,12,20,100].map(s=>(
             <button className="die-btn" key={s} onClick={()=>rollManual(s)}>d{s}</button>
           ))}
         </div>
-        {lastRoll && <div className="last-roll">d{lastRoll.sides} → <strong style={{color:S.gold}}>{lastRoll.r}</strong></div>}
+        {lastRoll && <div className="last-roll">d{lastRoll.sides} → <strong style={{color:S.ffgold}}>{lastRoll.r}</strong></div>}
       </div>
-      <button className="new-game-btn" onClick={confirmNewGame}>⚔ New Campaign</button>
+      <button className="new-game-btn" onClick={confirmNewGame}>↺ New Campaign</button>
     </div>
   );
 
   return (
     <div className="app">
       <div className="top-bar">
-        <span className="top-title">⚔ Solo D&amp;D</span>
-        <span style={{fontSize:10,color:S.muted}}>Kaelen · The Slate Ghost</span>
-        {saveStatus
-          ? <span className="save-badge">{saveStatus}</span>
-          : <button className="save-btn" onClick={handleManualSave} disabled={loading || messages.length === 0}>💾 Save</button>
-        }
-        <button className="sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 Sheet</button>
+        <div className="top-bar-inner">
+          <span className="top-title">⚔ SOLO D&amp;D</span>
+          <span className="top-subtitle">Kaelen · The Slate Ghost</span>
+          {saveStatus && <span className="save-badge">{saveStatus}</span>}
+        </div>
+        <div className="top-actions">
+          <button className={`top-btn${saveStatus==="✓ Saved!"?" save-active":""}`} onClick={handleManualSave} disabled={loading||messages.length===0}>
+            💾 SAVE
+          </button>
+          <button className="top-btn sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 SHEET</button>
+        </div>
       </div>
       <div className="content">
         {Sidebar}
@@ -549,16 +580,16 @@ export default function App() {
         <div className="main">
           {inCombat && (
             <div className="combat-banner">
-              <span className="combat-badge">⚔ COMBAT</span>
+              <span className="combat-badge">⚔ BATTLE</span>
               <span className="combat-info">Use attack cards or type your action</span>
-              <button className="end-btn" onClick={()=>{setCombat(false);setMsgs(p=>[...p,{type:"sys",text:"Combat ended."}]);}}>End</button>
+              <button className="end-btn" onClick={()=>{setCombat(false);setMsgs(p=>[...p,{type:"sys",text:"— Battle ended —"}]);}}>Flee</button>
             </div>
           )}
           <div className="log" ref={logRef}>
             {messages.map((msg,i)=>{
               if (msg.type==="scene")  return <SceneImage key={`scene-${i}`} narration={msg.narration}/>;
               if (msg.type==="dm")     return <div key={i} className="msg-dm">{msg.text}</div>;
-              if (msg.type==="player") return <div key={i} className="msg-player">"{msg.text}"</div>;
+              if (msg.type==="player") return <div key={i} className="msg-player">› {msg.text}</div>;
               if (msg.type==="roll")   return (
                 <div key={i} className="msg-roll">
                   <div className="roll-title">{msg.title}</div>
@@ -568,11 +599,15 @@ export default function App() {
               if (msg.type==="sys") return <div key={i} className="msg-sys">{msg.text}</div>;
               return null;
             })}
-            {loading && <div className="msg-dm"><div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div></div>}
+            {loading && (
+              <div className="msg-dm">
+                <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
+              </div>
+            )}
           </div>
           {choices.length>0 && !loading && (
             <div className="choices-wrap">
-              <div className="choices-label">Choose your action</div>
+              <div className="choices-label">— Choose Action —</div>
               <div className="choices-grid">
                 {choices.map((c,i)=>(
                   <button key={i} className="choice-btn" onClick={()=>sendAction(c)} disabled={loading}>{c}</button>
@@ -586,7 +621,7 @@ export default function App() {
                 onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendAction(input);}}}
                 placeholder="Or type your own action…" disabled={loading}/>
               <button className="send-btn" onClick={()=>sendAction(input)} disabled={loading||!input.trim()}>
-                {loading?"…":"Act"}
+                {loading?"...":"ACT"}
               </button>
             </div>
           </div>
