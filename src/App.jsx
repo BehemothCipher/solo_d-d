@@ -156,12 +156,36 @@ async function callDM(messages) {
 }
 
 function parseResponse(raw) {
-  const match = raw.match(/\{"choices":\s*\[[\s\S]*?\]\s*\}/);
+  // Try multiple patterns to find the choices JSON block
   let choices = [], narration = raw;
+  
+  // Pattern 1: standard inline JSON
+  let match = raw.match(/\{"choices":\s*\[[\s\S]*?\]\s*\}/);
+  
+  // Pattern 2: JSON on its own line at end
+  if (!match) match = raw.match(/\n\s*\{"choices":[\s\S]+\}\s*$/);
+  
+  // Pattern 3: anywhere in text
+  if (!match) match = raw.match(/\{\s*"choices"\s*:\s*\[([\s\S]*?)\]\s*\}/);
+
   if (match) {
-    try { choices = JSON.parse(match[0]).choices || []; } catch {}
-    narration = raw.replace(match[0], "").trim();
+    try {
+      const parsed = JSON.parse(match[0]);
+      choices = parsed.choices || [];
+      narration = raw.slice(0, match.index).trim();
+    } catch(e) {
+      // If JSON parse fails, try to extract choices manually
+      try {
+        const inner = match[0].replace(/^\{\s*"choices"\s*:\s*\[/, "").replace(/\]\s*\}$/, "");
+        choices = inner.split(/",\s*"/).map(s => s.replace(/^"|"$/g, "").trim()).filter(Boolean);
+        narration = raw.slice(0, match.index).trim();
+      } catch {}
+    }
   }
+  
+  // Clean up any trailing --- or whitespace from narration
+  narration = narration.replace(/---\s*$/, "").trim();
+  
   return { narration, choices };
 }
 
