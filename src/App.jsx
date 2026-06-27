@@ -16,56 +16,76 @@ function getSessionId() {
 function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const [enabled, setEnabled]   = useState(true);
-  const utterRef = useRef(null);
+  const enabledRef = useRef(true);
+  const pendingRef = useRef(null);
 
-  function speak(text) {
-    if (!enabled || !window.speechSynthesis) return;
-    // Clean markdown symbols before speaking
+  useEffect(() => { enabledRef.current = enabled; }, [enabled]);
+
+  function getMaleVoice() {
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    return (
+      voices.find(v => v.name === "Google UK English Male") ||
+      voices.find(v => /male/i.test(v.name)) ||
+      voices.find(v => v.name === "Daniel") ||
+      voices.find(v => v.name === "David") ||
+      voices.find(v => v.name === "Google UK English") ||
+      voices.find(v => v.lang === "en-GB") ||
+      voices.find(v => v.lang === "en-US" && !/female|zira|cortana|samantha|karen|moira|tessa/i.test(v.name)) ||
+      voices.find(v => v.lang.startsWith("en")) ||
+      voices[0]
+    );
+  }
+
+  function doSpeak(text) {
+    if (!window.speechSynthesis || !text) return;
     const clean = text
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/#{1,3}\s/g, "")
+      .replace(/[*#▶›]/g, "")
       .replace(/---/g, "")
-      .replace(/[▶›]/g, "")
-      .replace(/\{.*?\}/g, "")
+      .replace(/\{[^}]*\}/g, "")
+      .replace(/\s+/g, " ")
       .trim();
     if (!clean) return;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(clean);
-    // Pick the best available voice
-    const voices = window.speechSynthesis.getVoices();
-    // Force deep male voice — try multiple options
-    const maleVoice = voices.find(v => v.name === "Google UK English Male")
-      || voices.find(v => v.name.includes("Male"))
-      || voices.find(v => v.name === "Daniel")
-      || voices.find(v => v.name === "David")
-      || voices.find(v => v.name.includes("James"))
-      || voices.find(v => v.name.includes("Arthur"))
-      || voices.find(v => v.name.includes("Google") && v.lang === "en-GB")
-      || voices.find(v => v.lang === "en-GB")
-      || voices.find(v => v.lang.startsWith("en"));
-    if (maleVoice) utter.voice = maleVoice;
-    utter.rate   = 0.82;
-    utter.pitch  = 0.7;
-    utter.volume = 1;
-    utter.onstart = () => setSpeaking(true);
-    utter.onend   = () => setSpeaking(false);
-    utter.onerror = () => setSpeaking(false);
-    utterRef.current = utter;
-    window.speechSynthesis.speak(utter);
+    // Delay lets Android cancel() complete before next speak()
+    setTimeout(() => {
+      const utter = new SpeechSynthesisUtterance(clean);
+      const voice = getMaleVoice();
+      if (voice) utter.voice = voice;
+      utter.rate   = 0.82;
+      utter.pitch  = 0.6;
+      utter.volume = 1;
+      utter.onstart = () => setSpeaking(true);
+      utter.onend   = () => setSpeaking(false);
+      utter.onerror = () => setSpeaking(false);
+      window.speechSynthesis.speak(utter);
+    }, 150);
+  }
+
+  function speak(text) {
+    pendingRef.current = text;
+    if (enabledRef.current) doSpeak(text);
   }
 
   function stop() {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
     setSpeaking(false);
   }
 
-  function toggle() {
-    if (speaking) { stop(); }
-    setEnabled(e => !e);
+  function toggleEnabled() {
+    const next = !enabled;
+    setEnabled(next);
+    enabledRef.current = next;
+    if (!next) stop();
+    else if (pendingRef.current) doSpeak(pendingRef.current);
   }
 
-  return { speak, stop, speaking, enabled, toggle };
+  function playPending() {
+    if (pendingRef.current) doSpeak(pendingRef.current);
+  }
+
+  return { speak, stop, speaking, enabled, toggleEnabled, playPending };
 }
 
 async function saveGame(sessionId, state) {
@@ -383,6 +403,13 @@ body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,se
 .sheet-toggle{background:none;border:none;border-left:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:0 14px;cursor:pointer;transition:all .15s;letter-spacing:.06em;}
 .sheet-toggle:hover{color:${S.ffgold};}
 
+.card-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #1a2540;background:#020408;flex-shrink:0;}
+.card-nav-btn{background:none;border:1px solid #1a2540;color:#c8a030;font-size:22px;width:38px;height:38px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;padding:0;}
+.card-nav-btn:hover:not(:disabled){border-color:#c8a030;background:rgba(200,160,48,.1);}
+.card-nav-btn:disabled{opacity:.2;cursor:default;}
+.card-nav-count{font-family:'Cinzel',serif;font-size:11px;color:#4a5870;letter-spacing:.1em;}
+.card-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+.play-card{display:flex;flex-direction:column;animation:fadeUp .3s ease;}
 .typing{display:flex;gap:5px;align-items:center;padding:6px 0;}
 .dot{width:4px;height:4px;background:${S.ffgold};border-radius:50%;animation:pulse 1.2s infinite;}
 .dot:nth-child(2){animation-delay:.25s;}.dot:nth-child(3){animation-delay:.5s;}
