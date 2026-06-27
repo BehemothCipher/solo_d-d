@@ -184,7 +184,12 @@ export default function App() {
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ messages, hp, character:KAELEN }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Capture error body so we can see what the API expects
+      let body = "";
+      try { body = await res.text(); } catch {}
+      throw new Error(`HTTP ${res.status}: ${body}`);
+    }
     const data = await res.json();
     const text = extractText(data);
     // If we still got nothing, store raw JSON for debugging
@@ -249,7 +254,9 @@ export default function App() {
     hasInteracted.current=true; setScreen("loading"); setErrMsg("");
     setCards([]); setHistory([]); setChoices([]); setHp(KAELEN.hp.current); setImageUrl(null);
     try {
-      const { text, choices:newChoices, imagePrompt } = await callChat([]);
+      // Some APIs reject empty messages — send a seed to start the adventure
+      const seedMsg = [{ role:"user", content:"Begin the adventure. I am Kaelen, the Slate Ghost, a Neutral Evil Firbolg Rogue." }];
+      const { text, choices:newChoices, imagePrompt } = await callChat(seedMsg);
       setCards([text]); setCardIdx(0);
       setChoices(newChoices);
       setHistory([{ role:"assistant", content:text }]);
