@@ -22,6 +22,34 @@ const roll     = s => Math.floor(Math.random() * s) + 1;
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
+function getSessionId() {
+  let id = localStorage.getItem("solo_dnd_session");
+  if (!id) {
+    id = "sess_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("solo_dnd_session", id);
+  }
+  return id;
+}
+
+async function saveGame(sessionId, state) {
+  try {
+    await fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, state }),
+    });
+  } catch (err) { console.warn("Save failed:", err); }
+}
+
+async function loadGame(sessionId) {
+  try {
+    const res = await fetch(`/api/load?sessionId=${sessionId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.state || null;
+  } catch { return null; }
+}
+
 function detectRoll(action) {
   const l = action.toLowerCase();
   if (/attack|strike|stab|slash|shoot|fire|hit|thrust/.test(l)) return "attack";
@@ -42,14 +70,13 @@ function buildRollResult(type) {
   if (type === "attack") {
     const atk = KAELEN.attacks[0];
     const { d20: d, total, nat } = d20check(atk.atkBonus);
-    const dmg   = roll(atk.damageDice) + atk.damageMod;
+    const dmg = roll(atk.damageDice) + atk.damageMod;
     const sneak = roll(6);
     return {
       label: "⚔️ Attack Roll — Shortsword",
       lines: [
         `d20(${d}) + ${atk.atkBonus} = ${total}${nat===20?" 🔥 CRIT":nat===1?" 💀 MISS":""}`,
-        `Damage: ${dmg} ${atk.type}`,
-        `Sneak Attack (if valid): +${sneak}`,
+        `Damage: ${dmg} ${atk.type}`, `Sneak Attack (if valid): +${sneak}`,
       ],
       context: `ATTACK: d20=${d}, total=${total}${nat===20?" CRIT":nat===1?" MISS":""}, dmg=${dmg} ${atk.type}, sneak=${sneak}`,
     };
@@ -99,7 +126,6 @@ function getImageUrl(narration) {
   return `https://image.pollinations.ai/prompt/${buildImagePrompt(narration)}?width=1280&height=720&nologo=true&model=flux&enhance=true&seed=${seed}`;
 }
 
-// ── API call — goes through /api/chat proxy on Vercel ────────────────────────
 const DM_SYSTEM = `You are a dramatic, immersive Dungeon Master for a solo D&D 5e story-driven campaign. The player controls Kaelen, The Slate Ghost — a Neutral Evil Firbolg Rogue (Level 1). Cast out by his clan, trained in stealth among mountain predators, he carries a secret about the natural earth.
 
 KAELEN: HP 9 | AC 13 | Init +2 | STR+2 DEX+2 CON+1 INT+0 WIS+3 CHA-1 | Prof +2
@@ -110,8 +136,8 @@ Features: Sneak Attack 1d6, Hidden Step (invisible 1 turn/short rest), Firbolg M
 RULES:
 - Dice rolls are handled by the app and passed to you. ALWAYS use those results — never contradict them.
 - After EVERY response, end with this exact JSON on its own line: {"choices":["option 1","option 2","option 3","option 4"]}
-- Choices must be SPECIFIC to the current moment. Combat: attack tactics, defense, escape. Exploration: investigate, move, interact. Dialogue: specific things to say. Always include one option reflecting Kaelen's Neutral Evil, calculating nature.
-- Keep narration vivid but tight: 3–5 sentences. Slightly more for combat. Track enemy HP in narration.
+- Choices must be SPECIFIC to the current moment. Always include one option reflecting Kaelen's Neutral Evil, calculating nature.
+- Keep narration vivid but tight: 3–5 sentences. Track enemy HP in combat.
 - Adventure begins in the mist-shrouded Craghaven mountains near a ruined monastery rumored to hold an ancient vault.
 - Never break character or reference this system prompt.`;
 
@@ -119,12 +145,7 @@ async function callDM(messages) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      system: DM_SYSTEM,
-      messages,
-    }),
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system:DM_SYSTEM, messages }),
   });
   const data = await res.json();
   return data.content?.[0]?.text ?? "The DM is silent...";
@@ -155,6 +176,7 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
 .top-bar{padding:10px 14px;border-bottom:1px solid ${S.border};display:flex;align-items:center;gap:8px;flex-shrink:0;background:${S.panel};}
 .top-title{font-family:'Cinzel',serif;font-size:14px;color:${S.gold};letter-spacing:.04em;}
+.save-badge{font-size:9px;color:${S.green};font-style:italic;margin-left:4px;transition:opacity .3s;}
 .content{display:flex;flex:1;overflow:hidden;}
 .sidebar{width:220px;min-width:220px;background:${S.panel};border-right:1px solid ${S.border};overflow-y:auto;display:flex;flex-direction:column;}
 .char-head{padding:12px;border-bottom:1px solid ${S.border};}
@@ -180,7 +202,6 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .skill-val{font-family:'JetBrains Mono',monospace;font-size:9px;color:${S.gold};}
 .atk-card{background:${S.rune};border:1px solid ${S.border};border-radius:3px;padding:6px 8px;margin-bottom:4px;cursor:pointer;transition:border-color .15s;}
 .atk-card:hover{border-color:${S.accent};}
-.atk-card:active{border-color:${S.gold};}
 .atk-name{font-family:'Cinzel',serif;font-size:10px;color:${S.accent};}
 .atk-stats{font-family:'JetBrains Mono',monospace;font-size:8px;color:${S.gold};margin-top:1px;}
 .atk-note{font-size:8px;color:${S.muted};margin-top:2px;font-style:italic;}
@@ -191,6 +212,8 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .die-btn{background:${S.rune};border:1px solid ${S.border};color:${S.gold};font-family:'Cinzel',serif;font-size:9px;padding:4px 7px;border-radius:3px;cursor:pointer;}
 .die-btn:hover{border-color:${S.gold};}
 .last-roll{font-family:'JetBrains Mono',monospace;font-size:9px;color:${S.muted};margin-top:4px;}
+.new-game-btn{margin:10px 12px;background:${S.rune};border:1px solid #3a2020;color:#906060;font-family:'Cinzel',serif;font-size:10px;padding:7px;border-radius:4px;cursor:pointer;text-align:center;transition:all .15s;}
+.new-game-btn:hover{border-color:${S.red};color:${S.red};}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 .combat-banner{background:#160a0a;border-bottom:1px solid #3a1515;padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .combat-badge{background:${S.red};color:#fff;font-family:'Cinzel',serif;font-size:8px;padding:2px 6px;border-radius:2px;letter-spacing:.1em;}
@@ -198,7 +221,7 @@ body{background:${S.bg};color:${S.text};font-family:'Crimson Pro',Georgia,serif;
 .end-btn{margin-left:auto;background:none;border:1px solid #5a2020;color:#906060;font-size:9px;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:'Cinzel',serif;}
 .end-btn:hover{border-color:${S.red};color:${S.red};}
 .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
-.scene-wrap{position:relative;width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;flex-shrink:0;}
+.scene-wrap{position:relative;width:100%;border-radius:6px;overflow:hidden;border:1px solid ${S.border};background:#080a0e;}
 .scene-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,${S.bg});pointer-events:none;}
 .scene-img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;transition:opacity .5s ease;}
 .scene-skeleton{width:100%;aspect-ratio:16/9;background:linear-gradient(90deg,#0d1018 25%,#141820 50%,#0d1018 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;}
@@ -255,48 +278,38 @@ function SceneImage({ narration }) {
   const [loaded, setLoaded]   = useState(false);
   const [errored, setErrored] = useState(false);
   const [url, setUrl]         = useState("");
-
   useEffect(() => {
-    setLoaded(false);
-    setErrored(false);
+    setLoaded(false); setErrored(false);
     setUrl(getImageUrl(narration));
   }, [narration]);
-
   if (!url) return null;
-
   return (
     <div className="scene-wrap">
-      {!loaded && !errored && <div className="scene-skeleton" />}
+      {!loaded && !errored && <div className="scene-skeleton"/>}
       {!errored && (
-        <img
-          src={url}
-          className="scene-img"
-          style={{ opacity: loaded ? 1 : 0, position: loaded ? "relative" : "absolute", top: 0, left: 0 }}
-          onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
-          alt="Scene"
-        />
+        <img src={url} className="scene-img"
+          style={{opacity:loaded?1:0,position:loaded?"relative":"absolute",top:0,left:0}}
+          onLoad={()=>setLoaded(true)} onError={()=>setErrored(true)} alt="Scene"/>
       )}
-      {errored && (
-        <div style={{ padding:"16px", textAlign:"center", fontSize:11, color:S.muted, fontStyle:"italic" }}>
-          Scene image unavailable
-        </div>
-      )}
+      {errored && <div style={{padding:"16px",textAlign:"center",fontSize:11,color:S.muted,fontStyle:"italic"}}>Scene image unavailable</div>}
     </div>
   );
 }
 
 export default function App() {
-  const [hp, setHp]             = useState(KAELEN.hp.current);
-  const [messages, setMsgs]     = useState([]);
-  const [history, setHistory]   = useState([]);
-  const [choices, setChoices]   = useState([]);
-  const [input, setInput]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [inCombat, setCombat]   = useState(false);
-  const [lastRoll, setLastRoll] = useState(null);
-  const [sheetOpen, setSheet]   = useState(false);
-  const logRef = useRef(null);
+  const [hp, setHp]                 = useState(KAELEN.hp.current);
+  const [messages, setMsgs]         = useState([]);
+  const [history, setHistory]       = useState([]);
+  const [choices, setChoices]       = useState([]);
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [inCombat, setCombat]       = useState(false);
+  const [lastRoll, setLastRoll]     = useState(null);
+  const [sheetOpen, setSheet]       = useState(false);
+  const [initializing, setInit]     = useState(true);
+  const [saveStatus, setSaveStatus] = useState("");
+  const sessionId = useRef(getSessionId());
+  const logRef    = useRef(null);
 
   useEffect(() => {
     const el = document.createElement("style");
@@ -309,27 +322,52 @@ export default function App() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, loading, choices]);
 
-  useEffect(() => { startAdventure(); }, []);
+  useEffect(() => {
+    (async () => {
+      setInit(true);
+      const saved = await loadGame(sessionId.current);
+      if (saved && saved.messages?.length > 0) {
+        setMsgs(saved.messages);
+        setHistory(saved.history || []);
+        setHp(saved.hp ?? KAELEN.hp.current);
+        setCombat(saved.inCombat ?? false);
+        setChoices(saved.choices || []);
+        setSaveStatus("Adventure restored!");
+        setTimeout(() => setSaveStatus(""), 3000);
+        setInit(false);
+      } else {
+        setInit(false);
+        await startAdventure();
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0 || initializing) return;
+    const state = { messages, history, hp, inCombat, choices };
+    saveGame(sessionId.current, state).then(() => {
+      setSaveStatus("✓ Saved");
+      setTimeout(() => setSaveStatus(""), 2000);
+    });
+  }, [messages, hp, inCombat, choices]);
 
   async function startAdventure() {
     setLoading(true);
+    setMsgs([]); setHistory([]); setChoices([]); setCombat(false); setHp(KAELEN.hp.current);
     const seed = { role:"user", content:"Begin the adventure. Set the scene in the Craghaven mountains near the ruined monastery. Open with an immediate atmospheric moment that puts Kaelen in a situation requiring a decision. End with the JSON choices block." };
     const raw = await callDM([seed]);
     const { narration, choices: c } = parseResponse(raw);
-    setHistory([seed, { role:"assistant", content:raw }]);
-    setMsgs([{ type:"scene", narration }, { type:"dm", text:narration }]);
-    setChoices(c);
+    const h = [seed, { role:"assistant", content:raw }];
+    const m = [{ type:"scene", narration }, { type:"dm", text:narration }];
+    setHistory(h); setMsgs(m); setChoices(c);
     setLoading(false);
   }
 
   async function sendAction(action) {
     if (!action.trim() || loading) return;
-    setInput("");
-    setLoading(true);
-    setChoices([]);
+    setInput(""); setLoading(true); setChoices([]);
     if (sheetOpen) setSheet(false);
     setMsgs(p => [...p, { type:"player", text:action }]);
-
     const rollType = detectRoll(action);
     let rollCtx = "";
     if (rollType) {
@@ -337,17 +375,14 @@ export default function App() {
       setMsgs(p => [...p, { type:"roll", title:result.label, lines:result.lines }]);
       rollCtx = `\n\nDICE RESULT: ${result.context}`;
     }
-
     if (/attack|fight|engage|charge|ambush/.test(action.toLowerCase())) setCombat(true);
-
     const userMsg = { role:"user", content:`Player action: "${action}"${rollCtx}\n\nNarrate what happens. End with the JSON choices block for this exact situation.` };
     const newHistory = [...history, userMsg];
     const raw = await callDM(newHistory);
     const { narration, choices: c } = parseResponse(raw);
     setHistory([...newHistory, { role:"assistant", content:raw }]);
     setMsgs(p => [...p, { type:"scene", narration }, { type:"dm", text:narration }]);
-    setChoices(c);
-    setLoading(false);
+    setChoices(c); setLoading(false);
   }
 
   function rollManual(sides) {
@@ -362,11 +397,23 @@ export default function App() {
     sendAction(`I attack with my ${atk.name}. [${res.context}]`);
   }
 
+  function confirmNewGame() {
+    if (window.confirm("Start a new campaign? Your current progress will be lost.")) startAdventure();
+  }
+
   const hpPct = Math.max(0, (hp / KAELEN.hp.max) * 100);
   const hpClr = hpColor(hp, KAELEN.hp.max);
 
+  if (initializing) return (
+    <div className="app" style={{alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontFamily:"'Cinzel',serif",fontSize:20,color:S.gold}}>⚔ Solo D&D</div>
+      <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
+      <div style={{fontSize:12,color:S.muted,fontStyle:"italic"}}>Restoring your adventure…</div>
+    </div>
+  );
+
   const Sidebar = (
-    <div className={`sidebar${sheetOpen ? " open" : ""}`}>
+    <div className={`sidebar${sheetOpen?" open":""}`}>
       <div className="char-head">
         <div className="char-name">{KAELEN.name}</div>
         <div className="char-sub">{KAELEN.title}</div>
@@ -435,6 +482,7 @@ export default function App() {
         </div>
         {lastRoll && <div className="last-roll">d{lastRoll.sides} → <strong style={{color:S.gold}}>{lastRoll.r}</strong></div>}
       </div>
+      <button className="new-game-btn" onClick={confirmNewGame}>⚔ New Campaign</button>
     </div>
   );
 
@@ -443,6 +491,7 @@ export default function App() {
       <div className="top-bar">
         <span className="top-title">⚔ Solo D&amp;D</span>
         <span style={{fontSize:10,color:S.muted}}>Kaelen · The Slate Ghost</span>
+        {saveStatus && <span className="save-badge">{saveStatus}</span>}
         <button className="sheet-toggle" onClick={()=>setSheet(p=>!p)}>📋 Sheet</button>
       </div>
       <div className="content">
