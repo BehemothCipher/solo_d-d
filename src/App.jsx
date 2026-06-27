@@ -506,6 +506,7 @@ export default function App() {
   const [sheetOpen, setSheet]       = useState(false);
   const [initializing, setInit]     = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
+  const [retryMsg, setRetryMsg]     = useState(null);
   const sessionId = useRef(getSessionId());
   const logRef    = useRef(null);
   const tts       = useTTS();
@@ -706,6 +707,30 @@ export default function App() {
     if (window.confirm("Start a new campaign? Your current progress will be lost.")) startAdventure();
   }
 
+  async function retryLastAction() {
+    if (loading) return;
+    // Find last player action in history
+    const lastUser = [...history].reverse().find(h => h.role === "user");
+    if (!lastUser) return;
+    setLoading(true);
+    setChoices([]);
+    const raw = await callDM(history, buildDMSystem(character));
+    const { narration, choices: c } = parseResponse(raw);
+    // Replace last DM message
+    setMsgs(p => {
+      const msgs = [...p];
+      const lastDmIdx = msgs.map(m=>m.type).lastIndexOf("dm");
+      if (lastDmIdx >= 0) msgs[lastDmIdx] = { type:"dm", text:narration };
+      const lastSceneIdx = msgs.map(m=>m.type).lastIndexOf("scene");
+      if (lastSceneIdx >= 0) msgs[lastSceneIdx] = { type:"scene", narration };
+      return msgs;
+    });
+    setHistory(h => [...h, { role:"assistant", content:raw }]);
+    setChoices(c);
+    setLoading(false);
+    tts.speak(narration);
+  }
+
   const hpPct = Math.max(0, (hp / character?.hp?.max || 9) * 100);
   const hpClr = hpColor(hp, character?.hp?.max || 9);
 
@@ -855,7 +880,17 @@ export default function App() {
                       {r.lines.map((l,j)=><div key={j}>{l}</div>)}
                     </div>
                   ))}
-                  <div className="msg-dm">{card.dm.text}</div>
+                  <div className="msg-dm">
+                    {card.dm.text}
+                    {card.dm.text === "The DM is silent..." && cardIndex === cards.length - 1 && (
+                      <button onClick={retryLastAction} disabled={loading} style={{
+                        display:"block", marginTop:12, background:"none",
+                        border:`1px solid #c8a030`, color:"#c8a030",
+                        fontFamily:"'Cinzel',serif", fontSize:11, padding:"6px 14px",
+                        borderRadius:3, cursor:"pointer", letterSpacing:".06em"
+                      }}>↺ Retry</button>
+                    )}
+                  </div>
                   {loading && cardIndex === cards.length - 1 && (
                     <div className="msg-dm" style={{borderTop:`1px solid ${S.border}`,paddingTop:10,marginTop:10}}>
                       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
