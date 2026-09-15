@@ -1,5 +1,31 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import CharacterSelect from "./CharacterSelect.jsx";
+
+// Error boundary to catch white screens
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{background:"#050810",color:"#c8d8f0",padding:20,fontFamily:"monospace",minHeight:"100vh"}}>
+          <div style={{color:"#c8a030",fontFamily:"serif",fontSize:18,marginBottom:16}}>⚔ Solo D&D — Error</div>
+          <div style={{color:"#c03030",marginBottom:8}}>Something crashed. Error details:</div>
+          <pre style={{fontSize:11,color:"#a0b0c0",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>
+            {this.state.error?.message}
+            {"
+"}
+            {this.state.error?.stack?.slice(0,500)}
+          </pre>
+          <button onClick={()=>window.location.reload()} style={{marginTop:16,background:"#1e4a60",border:"1px solid #4a9aba",color:"white",padding:"8px 16px",borderRadius:4,cursor:"pointer",fontFamily:"serif"}}>
+            Reload App
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Character loaded dynamically from CharacterSelect
 
@@ -183,21 +209,16 @@ STYLE RULES:
 
 function buildDMSystem(char) {
   if (!char) return DM_SYSTEM;
-  try {
-  const stats   = char.stats || {};
-  const mods    = char.mods || {};
-  const skills  = char.skills || {};
-  const attacks = char.attacks || [];
-  const statLine  = Object.entries(stats).map(([k,v]) => `${k}${(mods[k]||0)>=0?"+"+(mods[k]||0):(mods[k]||0)}`).join(" ");
-  const topSkills = Object.entries(skills).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}${v>=0?"+"+v:v}`).join(", ");
-  const atkLine   = attacks.map(a=>`${a.name} ${(a.atkBonus||0)>=0?"+"+(a.atkBonus||0):(a.atkBonus||0)} (1d${a.damageDice||6}${(a.damageMod||0)>0?"+"+(a.damageMod||0):""} ${a.type||""})`).join(", ");
+  const statLine = Object.entries(char.stats).map(([k,v]) => `${k}${char.mods[k]>=0?"+"+char.mods[k]:char.mods[k]}`).join(" ");
+  const topSkills = Object.entries(char.skills).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}${v>=0?"+"+v:v}`).join(", ");
+  const attacks   = char.attacks.map(a=>`${a.name} ${a.atkBonus>=0?"+"+a.atkBonus:a.atkBonus} (1d${a.damageDice}${a.damageMod>0?"+"+a.damageMod:""} ${a.type})`).join(", ");
   return `You are a dramatic Dungeon Master running a solo D&D 5e campaign with a Final Fantasy-inspired style — vivid scene descriptions, memorable characters, emotional stakes, and a sense of epic adventure.
 
 THE PLAYER CHARACTER: ${char.name}${char.title?", "+char.title:""} — ${char.alignment} ${char.race} ${char.class} (Level ${char.level})
 HP: ${char.hp.max} | AC: ${char.ac} | Speed: ${char.speed}ft | Prof: +${char.profBonus}
 Stats: ${statLine}
 Top Skills: ${topSkills}
-Attacks: ${atkLine}
+Attacks: ${attacks}
 Features: ${char.features.filter(Boolean).slice(0,4).join("; ")}
 ${char.backstory ? "Backstory: "+char.backstory : ""}
 
@@ -213,22 +234,13 @@ STYLE RULES:
 }
 
 async function callDM(messages, system) {
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("DM API error:", res.status, data);
-      return `[Error ${res.status}: ${data?.detail?.error?.message || data?.error || "Unknown error"}] {"choices":["Try again","Wait a moment","Check your connection","Retry the action"]}`;
-    }
-    return data.content?.[0]?.text ?? `The DM is silent... {"choices":["Try again","Wait a moment","Retry","Continue"]}`;
-  } catch(err) {
-    console.error("DM fetch error:", err);
-    return `[Network error: ${err.message}] {"choices":["Try again","Check connection","Retry","Wait"]}`;
-  }
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text ?? "The DM is silent...";
 }
 
 function parseResponse(raw) {
@@ -478,7 +490,7 @@ function SceneImage({ narration }) {
   );
 }
 
-export default function App() {
+function AppInner() {
   const [character, setCharacter]   = useState(null);
   const [showSelect, setShowSelect] = useState(false);
   const [hasSave, setHasSave]       = useState(false);
@@ -877,3 +889,11 @@ export default function App() {
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
+      }
