@@ -28,6 +28,7 @@ class ErrorBoundary extends React.Component {
 // Character loaded dynamically from CharacterSelect
 
 const roll     = s => Math.floor(Math.random() * s) + 1;
+const KAELEN_DEFAULT_ATK = { name:"Shortsword", atkBonus:4, damageDice:6, damageMod:2, type:"P/S" };
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
@@ -130,7 +131,7 @@ function detectRoll(action) {
 
 function buildRollResult(type) {
   if (type === "attack") {
-    const atk = character?.attacks || [][0];
+    const atk = (character?.attacks || [])[0] || KAELEN_DEFAULT_ATK;
     const { d20: d, total, nat } = d20check(atk.atkBonus);
     const dmg = roll(atk.damageDice) + atk.damageMod;
     const sneak = roll(6);
@@ -763,7 +764,7 @@ function AppInner() {
       </div>
       <div className="sec">
         <div className="sec-title">Attacks</div>
-        {character?.attacks || [].map(a=>(
+        {(character?.attacks || []).map(a=>(
           <div className="atk-card" key={a.name} onClick={()=>handleAttackCard(a)}>
             <div className="atk-name">{a.name}</div>
             <div className="atk-stats">{fmt(a.atkBonus)} · 1d{a.damageDice}{a.damageMod>0?`+${a.damageMod}`:""} {a.type}</div>
@@ -773,11 +774,11 @@ function AppInner() {
       </div>
       <div className="sec">
         <div className="sec-title">Features</div>
-        {character?.features || [].map((f,i)=><div className="feat-item" key={i}>{f}</div>)}
+        {(character?.features || []).map((f,i)=>f ? <div className="feat-item" key={i}>{f}</div> : null)}
       </div>
       <div className="sec">
         <div className="sec-title">Inventory</div>
-        {character?.inventory || [].map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
+        {(character?.inventory || []).map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
       </div>
       <div className="sec">
         <div className="sec-title">Dice</div>
@@ -894,4 +895,4 @@ export default function App() {
       <AppInner />
     </ErrorBoundary>
   );
-            }
+      }
