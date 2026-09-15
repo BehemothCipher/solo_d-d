@@ -3,24 +3,22 @@ import CharacterSelect from "./CharacterSelect.jsx";
 
 // Error boundary to catch white screens
 class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null }; }
+  constructor(props) { super(props); this.state = { error: null, info: "" }; }
   static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { this.setState({ info: info.componentStack || "" }); }
   render() {
     if (this.state.error) {
-      return (
-        <div style={{background:"#050810",color:"#c8d8f0",padding:20,fontFamily:"monospace",minHeight:"100vh"}}>
-          <div style={{color:"#c8a030",fontFamily:"serif",fontSize:18,marginBottom:16}}>⚔ Solo D&D — Error</div>
-          <div style={{color:"#c03030",marginBottom:8}}>Something crashed. Error details:</div>
-          <pre style={{fontSize:11,color:"#a0b0c0",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>
-            {this.state.error?.message}
-            {"
-"}
-            {this.state.error?.stack?.slice(0,500)}
-          </pre>
-          <button onClick={()=>window.location.reload()} style={{marginTop:16,background:"#1e4a60",border:"1px solid #4a9aba",color:"white",padding:"8px 16px",borderRadius:4,cursor:"pointer",fontFamily:"serif"}}>
-            Reload App
-          </button>
-        </div>
+      const msg = String(this.state.error?.message || "Unknown error");
+      const stack = String(this.state.error?.stack || "").slice(0, 400);
+      return React.createElement("div",
+        { style: { background:"#050810", color:"#c8d8f0", padding:20, fontFamily:"monospace", minHeight:"100vh" } },
+        React.createElement("div", { style: { color:"#c8a030", fontSize:18, marginBottom:16 } }, "Solo D&D — Error"),
+        React.createElement("div", { style: { color:"#c03030", marginBottom:8 } }, "Crash: " + msg),
+        React.createElement("pre", { style: { fontSize:10, color:"#a0b0c0", whiteSpace:"pre-wrap", wordBreak:"break-all" } }, stack),
+        React.createElement("button",
+          { onClick: () => window.location.reload(), style: { marginTop:16, background:"#1e4a60", border:"1px solid #4a9aba", color:"white", padding:"8px 16px", cursor:"pointer" } },
+          "Reload App"
+        )
       );
     }
     return this.props.children;
@@ -896,4 +894,4 @@ export default function App() {
       <AppInner />
     </ErrorBoundary>
   );
-      }
+            }
