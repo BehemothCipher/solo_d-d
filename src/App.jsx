@@ -16,76 +16,56 @@ function getSessionId() {
 function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const [enabled, setEnabled]   = useState(true);
-  const enabledRef = useRef(true);
-  const pendingRef = useRef(null);
+  const utterRef = useRef(null);
 
-  useEffect(() => { enabledRef.current = enabled; }, [enabled]);
-
-  function getMaleVoice() {
-    if (!window.speechSynthesis) return null;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices.length) return null;
-    return (
-      voices.find(v => v.name === "Google UK English Male") ||
-      voices.find(v => /male/i.test(v.name)) ||
-      voices.find(v => v.name === "Daniel") ||
-      voices.find(v => v.name === "David") ||
-      voices.find(v => v.name === "Google UK English") ||
-      voices.find(v => v.lang === "en-GB") ||
-      voices.find(v => v.lang === "en-US" && !/female|zira|cortana|samantha|karen|moira|tessa/i.test(v.name)) ||
-      voices.find(v => v.lang.startsWith("en")) ||
-      voices[0]
-    );
-  }
-
-  function doSpeak(text) {
-    if (!window.speechSynthesis || !text) return;
+  function speak(text) {
+    if (!enabled || !window.speechSynthesis) return;
+    // Clean markdown symbols before speaking
     const clean = text
-      .replace(/[*#▶›]/g, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/#{1,3}\s/g, "")
       .replace(/---/g, "")
-      .replace(/\{[^}]*\}/g, "")
-      .replace(/\s+/g, " ")
+      .replace(/[▶›]/g, "")
+      .replace(/\{.*?\}/g, "")
       .trim();
     if (!clean) return;
     window.speechSynthesis.cancel();
-    // Delay lets Android cancel() complete before next speak()
-    setTimeout(() => {
-      const utter = new SpeechSynthesisUtterance(clean);
-      const voice = getMaleVoice();
-      if (voice) utter.voice = voice;
-      utter.rate   = 0.82;
-      utter.pitch  = 0.6;
-      utter.volume = 1;
-      utter.onstart = () => setSpeaking(true);
-      utter.onend   = () => setSpeaking(false);
-      utter.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utter);
-    }, 150);
-  }
-
-  function speak(text) {
-    pendingRef.current = text;
-    if (enabledRef.current) doSpeak(text);
+    const utter = new SpeechSynthesisUtterance(clean);
+    // Pick the best available voice
+    const voices = window.speechSynthesis.getVoices();
+    // Force deep male voice — try multiple options
+    const maleVoice = voices.find(v => v.name === "Google UK English Male")
+      || voices.find(v => v.name.includes("Male"))
+      || voices.find(v => v.name === "Daniel")
+      || voices.find(v => v.name === "David")
+      || voices.find(v => v.name.includes("James"))
+      || voices.find(v => v.name.includes("Arthur"))
+      || voices.find(v => v.name.includes("Google") && v.lang === "en-GB")
+      || voices.find(v => v.lang === "en-GB")
+      || voices.find(v => v.lang.startsWith("en"));
+    if (maleVoice) utter.voice = maleVoice;
+    utter.rate   = 0.82;
+    utter.pitch  = 0.7;
+    utter.volume = 1;
+    utter.onstart = () => setSpeaking(true);
+    utter.onend   = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    utterRef.current = utter;
+    window.speechSynthesis.speak(utter);
   }
 
   function stop() {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel();
     setSpeaking(false);
   }
 
-  function toggleEnabled() {
-    const next = !enabled;
-    setEnabled(next);
-    enabledRef.current = next;
-    if (!next) stop();
-    else if (pendingRef.current) doSpeak(pendingRef.current);
+  function toggle() {
+    if (speaking) { stop(); }
+    setEnabled(e => !e);
   }
 
-  function playPending() {
-    if (pendingRef.current) doSpeak(pendingRef.current);
-  }
-
-  return { speak, stop, speaking, enabled, toggleEnabled, playPending };
+  return { speak, stop, speaking, enabled, toggle };
 }
 
 async function saveGame(sessionId, state) {
@@ -203,16 +183,21 @@ STYLE RULES:
 
 function buildDMSystem(char) {
   if (!char) return DM_SYSTEM;
-  const statLine = Object.entries(char.stats).map(([k,v]) => `${k}${char.mods[k]>=0?"+"+char.mods[k]:char.mods[k]}`).join(" ");
-  const topSkills = Object.entries(char.skills).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}${v>=0?"+"+v:v}`).join(", ");
-  const attacks   = char.attacks.map(a=>`${a.name} ${a.atkBonus>=0?"+"+a.atkBonus:a.atkBonus} (1d${a.damageDice}${a.damageMod>0?"+"+a.damageMod:""} ${a.type})`).join(", ");
+  try {
+  const stats   = char.stats || {};
+  const mods    = char.mods || {};
+  const skills  = char.skills || {};
+  const attacks = char.attacks || [];
+  const statLine  = Object.entries(stats).map(([k,v]) => `${k}${(mods[k]||0)>=0?"+"+(mods[k]||0):(mods[k]||0)}`).join(" ");
+  const topSkills = Object.entries(skills).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}${v>=0?"+"+v:v}`).join(", ");
+  const atkLine   = attacks.map(a=>`${a.name} ${(a.atkBonus||0)>=0?"+"+(a.atkBonus||0):(a.atkBonus||0)} (1d${a.damageDice||6}${(a.damageMod||0)>0?"+"+(a.damageMod||0):""} ${a.type||""})`).join(", ");
   return `You are a dramatic Dungeon Master running a solo D&D 5e campaign with a Final Fantasy-inspired style — vivid scene descriptions, memorable characters, emotional stakes, and a sense of epic adventure.
 
 THE PLAYER CHARACTER: ${char.name}${char.title?", "+char.title:""} — ${char.alignment} ${char.race} ${char.class} (Level ${char.level})
 HP: ${char.hp.max} | AC: ${char.ac} | Speed: ${char.speed}ft | Prof: +${char.profBonus}
 Stats: ${statLine}
 Top Skills: ${topSkills}
-Attacks: ${attacks}
+Attacks: ${atkLine}
 Features: ${char.features.filter(Boolean).slice(0,4).join("; ")}
 ${char.backstory ? "Backstory: "+char.backstory : ""}
 
@@ -228,13 +213,22 @@ STYLE RULES:
 }
 
 async function callDM(messages, system) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "The DM is silent...";
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("DM API error:", res.status, data);
+      return `[Error ${res.status}: ${data?.detail?.error?.message || data?.error || "Unknown error"}] {"choices":["Try again","Wait a moment","Check your connection","Retry the action"]}`;
+    }
+    return data.content?.[0]?.text ?? `The DM is silent... {"choices":["Try again","Wait a moment","Retry","Continue"]}`;
+  } catch(err) {
+    console.error("DM fetch error:", err);
+    return `[Network error: ${err.message}] {"choices":["Try again","Check connection","Retry","Wait"]}`;
+  }
 }
 
 function parseResponse(raw) {
@@ -403,13 +397,6 @@ body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,se
 .sheet-toggle{background:none;border:none;border-left:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:0 14px;cursor:pointer;transition:all .15s;letter-spacing:.06em;}
 .sheet-toggle:hover{color:${S.ffgold};}
 
-.card-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #1a2540;background:#020408;flex-shrink:0;}
-.card-nav-btn{background:none;border:1px solid #1a2540;color:#c8a030;font-size:22px;width:38px;height:38px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;padding:0;}
-.card-nav-btn:hover:not(:disabled){border-color:#c8a030;background:rgba(200,160,48,.1);}
-.card-nav-btn:disabled{opacity:.2;cursor:default;}
-.card-nav-count{font-family:'Cinzel',serif;font-size:11px;color:#4a5870;letter-spacing:.1em;}
-.card-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
-.play-card{display:flex;flex-direction:column;animation:fadeUp .3s ease;}
 .typing{display:flex;gap:5px;align-items:center;padding:6px 0;}
 .dot{width:4px;height:4px;background:${S.ffgold};border-radius:50%;animation:pulse 1.2s infinite;}
 .dot:nth-child(2){animation-delay:.25s;}.dot:nth-child(3){animation-delay:.5s;}
@@ -506,7 +493,6 @@ export default function App() {
   const [sheetOpen, setSheet]       = useState(false);
   const [initializing, setInit]     = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
-  const [retryMsg, setRetryMsg]     = useState(null);
   const sessionId = useRef(getSessionId());
   const logRef    = useRef(null);
   const tts       = useTTS();
@@ -707,30 +693,6 @@ export default function App() {
     if (window.confirm("Start a new campaign? Your current progress will be lost.")) startAdventure();
   }
 
-  async function retryLastAction() {
-    if (loading) return;
-    // Find last player action in history
-    const lastUser = [...history].reverse().find(h => h.role === "user");
-    if (!lastUser) return;
-    setLoading(true);
-    setChoices([]);
-    const raw = await callDM(history, buildDMSystem(character));
-    const { narration, choices: c } = parseResponse(raw);
-    // Replace last DM message
-    setMsgs(p => {
-      const msgs = [...p];
-      const lastDmIdx = msgs.map(m=>m.type).lastIndexOf("dm");
-      if (lastDmIdx >= 0) msgs[lastDmIdx] = { type:"dm", text:narration };
-      const lastSceneIdx = msgs.map(m=>m.type).lastIndexOf("scene");
-      if (lastSceneIdx >= 0) msgs[lastSceneIdx] = { type:"scene", narration };
-      return msgs;
-    });
-    setHistory(h => [...h, { role:"assistant", content:raw }]);
-    setChoices(c);
-    setLoading(false);
-    tts.speak(narration);
-  }
-
   const hpPct = Math.max(0, (hp / character?.hp?.max || 9) * 100);
   const hpClr = hpColor(hp, character?.hp?.max || 9);
 
@@ -880,17 +842,7 @@ export default function App() {
                       {r.lines.map((l,j)=><div key={j}>{l}</div>)}
                     </div>
                   ))}
-                  <div className="msg-dm">
-                    {card.dm.text}
-                    {card.dm.text === "The DM is silent..." && cardIndex === cards.length - 1 && (
-                      <button onClick={retryLastAction} disabled={loading} style={{
-                        display:"block", marginTop:12, background:"none",
-                        border:`1px solid #c8a030`, color:"#c8a030",
-                        fontFamily:"'Cinzel',serif", fontSize:11, padding:"6px 14px",
-                        borderRadius:3, cursor:"pointer", letterSpacing:".06em"
-                      }}>↺ Retry</button>
-                    )}
-                  </div>
+                  <div className="msg-dm">{card.dm.text}</div>
                   {loading && cardIndex === cards.length - 1 && (
                     <div className="msg-dm" style={{borderTop:`1px solid ${S.border}`,paddingTop:10,marginTop:10}}>
                       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
