@@ -624,14 +624,19 @@ export default function App() {
     // Default to Kaelen if no character provided
     const KAELEN_DEFAULT = {
       name:"Kaelen", title:"The Slate Ghost", race:"Firbolg", class:"Rogue",
-      level:1, alignment:"Neutral Evil", backstory:"Cast out by his clan, Kaelen became a ghost among the mountains.",
+      level:1, alignment:"Neutral Evil", portrait:"🗡️",
+      backstory:"Cast out by his clan, Kaelen became a ghost among the mountains.",
       hp:{max:9,current:9}, ac:13, initiative:2, speed:30, profBonus:2,
       stats:{STR:15,DEX:15,CON:13,INT:10,WIS:16,CHA:8},
       mods:{STR:2,DEX:2,CON:1,INT:0,WIS:3,CHA:-1},
-      attacks:[{name:"Shortsword",atkBonus:4,damageDice:6,damageMod:2,type:"P/S",notes:"Finesse. Sneak Attack (1d6)."}],
-      features:["Sneak Attack (1d6)","Hidden Step","Firbolg Magic","Thieves Cant"],
-      skills:{Stealth:6,Perception:5,"Animal Handling":5,Survival:5,Acrobatics:4,Insight:3},
-      inventory:["Shortsword","Dagger","Shortbow","Leather Armor"],
+      attacks:[
+        {name:"Shortsword",atkBonus:4,damageDice:6,damageMod:2,type:"P/S",notes:"Finesse. Sneak Attack (1d6)."},
+        {name:"Dagger",atkBonus:4,damageDice:4,damageMod:0,type:"Piercing",notes:"Thrown 20/60ft."},
+        {name:"Shortbow",atkBonus:4,damageDice:6,damageMod:2,type:"Piercing",notes:"Range 80/320ft."},
+      ],
+      features:["Sneak Attack (1d6)","Hidden Step (invisible 1 turn/rest)","Firbolg Magic (Detect Magic/Disguise Self 1/rest)","Thieves Cant","Speech of Beast & Leaf"],
+      skills:{Acrobatics:4,"Animal Handling":5,Arcana:0,Athletics:2,Deception:-1,History:0,Insight:3,Intimidation:-1,Investigation:0,Medicine:3,Nature:0,Perception:5,Performance:-1,Persuasion:-1,Religion:0,"Sleight of Hand":2,Stealth:6,Survival:5},
+      inventory:["2x Shortsword","2x Dagger","Shortbow + 20 arrows","Leather Armor","Thieves Tools","Herbalism Kit"],
     };
     const activeChar = char || character || KAELEN_DEFAULT;
     if (!activeChar) return;
