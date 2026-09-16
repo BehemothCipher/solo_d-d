@@ -1,34 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import CharacterSelect from "./CharacterSelect.jsx";
-
-// Error boundary to catch white screens
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null, info: "" }; }
-  static getDerivedStateFromError(e) { return { error: e }; }
-  componentDidCatch(e, info) { this.setState({ info: info.componentStack || "" }); }
-  render() {
-    if (this.state.error) {
-      const msg = String(this.state.error?.message || "Unknown error");
-      const stack = String(this.state.error?.stack || "").slice(0, 400);
-      return React.createElement("div",
-        { style: { background:"#050810", color:"#c8d8f0", padding:20, fontFamily:"monospace", minHeight:"100vh" } },
-        React.createElement("div", { style: { color:"#c8a030", fontSize:18, marginBottom:16 } }, "Solo D&D — Error"),
-        React.createElement("div", { style: { color:"#c03030", marginBottom:8 } }, "Crash: " + msg),
-        React.createElement("pre", { style: { fontSize:10, color:"#a0b0c0", whiteSpace:"pre-wrap", wordBreak:"break-all" } }, stack),
-        React.createElement("button",
-          { onClick: () => window.location.reload(), style: { marginTop:16, background:"#1e4a60", border:"1px solid #4a9aba", color:"white", padding:"8px 16px", cursor:"pointer" } },
-          "Reload App"
-        )
-      );
-    }
-    return this.props.children;
-  }
-}
 
 // Character loaded dynamically from CharacterSelect
 
 const roll     = s => Math.floor(Math.random() * s) + 1;
-const KAELEN_DEFAULT_ATK = { name:"Shortsword", atkBonus:4, damageDice:6, damageMod:2, type:"P/S" };
 const d20check = mod => { const d = roll(20); return { d20: d, total: d + mod, nat: d }; };
 const fmt      = n => n >= 0 ? `+${n}` : `${n}`;
 
@@ -131,7 +106,7 @@ function detectRoll(action) {
 
 function buildRollResult(type) {
   if (type === "attack") {
-    const atk = (character?.attacks || [])[0] || KAELEN_DEFAULT_ATK;
+    const atk = character?.attacks || [][0];
     const { d20: d, total, nat } = d20check(atk.atkBonus);
     const dmg = roll(atk.damageDice) + atk.damageMod;
     const sneak = roll(6);
@@ -297,10 +272,10 @@ const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body,#root{height:100%;width:100%;}
-body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;overflow:hidden;}
+body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:${S.ffdark};}::-webkit-scrollbar-thumb{background:${S.accentDim};border-radius:2px;}
 
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
 
 /* FF-style top bar */
 .top-bar{padding:0;border-bottom:2px solid ${S.ffgold};display:flex;align-items:stretch;flex-shrink:0;background:linear-gradient(180deg,#0a1428 0%,#050810 100%);}
@@ -489,7 +464,7 @@ function SceneImage({ narration }) {
   );
 }
 
-function AppInner() {
+export default function App() {
   const [character, setCharacter]   = useState(null);
   const [showSelect, setShowSelect] = useState(false);
   const [hasSave, setHasSave]       = useState(false);
@@ -646,7 +621,19 @@ function AppInner() {
   }
 
   async function startAdventure(char) {
-    const activeChar = char || character;
+    // Default to Kaelen if no character provided
+    const KAELEN_DEFAULT = {
+      name:"Kaelen", title:"The Slate Ghost", race:"Firbolg", class:"Rogue",
+      level:1, alignment:"Neutral Evil", backstory:"Cast out by his clan, Kaelen became a ghost among the mountains.",
+      hp:{max:9,current:9}, ac:13, initiative:2, speed:30, profBonus:2,
+      stats:{STR:15,DEX:15,CON:13,INT:10,WIS:16,CHA:8},
+      mods:{STR:2,DEX:2,CON:1,INT:0,WIS:3,CHA:-1},
+      attacks:[{name:"Shortsword",atkBonus:4,damageDice:6,damageMod:2,type:"P/S",notes:"Finesse. Sneak Attack (1d6)."}],
+      features:["Sneak Attack (1d6)","Hidden Step","Firbolg Magic","Thieves Cant"],
+      skills:{Stealth:6,Perception:5,"Animal Handling":5,Survival:5,Acrobatics:4,Insight:3},
+      inventory:["Shortsword","Dagger","Shortbow","Leather Armor"],
+    };
+    const activeChar = char || character || KAELEN_DEFAULT;
     if (!activeChar) return;
     setLoading(true);
     setMsgs([]); setHistory([]); setChoices([]); setCombat(false);
@@ -764,7 +751,7 @@ function AppInner() {
       </div>
       <div className="sec">
         <div className="sec-title">Attacks</div>
-        {(character?.attacks || []).map(a=>(
+        {character?.attacks || [].map(a=>(
           <div className="atk-card" key={a.name} onClick={()=>handleAttackCard(a)}>
             <div className="atk-name">{a.name}</div>
             <div className="atk-stats">{fmt(a.atkBonus)} · 1d{a.damageDice}{a.damageMod>0?`+${a.damageMod}`:""} {a.type}</div>
@@ -774,11 +761,11 @@ function AppInner() {
       </div>
       <div className="sec">
         <div className="sec-title">Features</div>
-        {(character?.features || []).map((f,i)=>f ? <div className="feat-item" key={i}>{f}</div> : null)}
+        {character?.features || [].map((f,i)=><div className="feat-item" key={i}>{f}</div>)}
       </div>
       <div className="sec">
         <div className="sec-title">Inventory</div>
-        {(character?.inventory || []).map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
+        {character?.inventory || [].map((item,i)=><div className="inv-item" key={i}>· {item}</div>)}
       </div>
       <div className="sec">
         <div className="sec-title">Dice</div>
@@ -888,11 +875,3 @@ function AppInner() {
     </div>
   );
 }
-
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <AppInner />
-    </ErrorBoundary>
-  );
-      }
