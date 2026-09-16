@@ -1,22 +1,20 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const { sessionId, state } = req.body;
-  if (!sessionId || !state) return res.status(400).json({ error: "Missing sessionId or state" });
+  if (!sessionId || !state) return res.status(400).json({ error: "Missing data" });
+
+  const url   = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
   try {
-    const response = await fetch(`${process.env.KV_REST_API_URL}/set/session:${sessionId}`, {
+    const r = await fetch(`${url}/set/session:${sessionId}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(JSON.stringify(state)),
     });
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({ error: "Upstash error", detail: text });
-    }
+    if (!r.ok) return res.status(500).json({ error: "Save failed", detail: await r.text() });
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ error: "Save failed", detail: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
