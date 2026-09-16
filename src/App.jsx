@@ -208,13 +208,21 @@ STYLE RULES:
 }
 
 async function callDM(messages, system) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "The DM is silent...";
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, system: system || DM_SYSTEM, messages }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const err = data?.error || data?.detail?.error?.message || JSON.stringify(data).slice(0,100);
+      return `[API Error ${res.status}: ${err}] {"choices":["Try again","Retry","Wait","Continue"]}`;
+    }
+    return data.content?.[0]?.text || `[No text in response: ${JSON.stringify(data).slice(0,100)}] {"choices":["Try again","Retry","Wait","Continue"]}`;
+  } catch(err) {
+    return `[Network error: ${err.message}] {"choices":["Try again","Check connection","Retry","Wait"]}`;
+  }
 }
 
 function parseResponse(raw) {
