@@ -849,20 +849,21 @@ export default function App() {
               </div>
             )}
             {cards.length > 0 && (() => {
-              const card = cards[cardIndex];
+              const card = cards[Math.min(cardIndex, cards.length - 1)];
+              if (!card || !card.dm) return null;
               return (
                 <div className="play-card" key={cardIndex}>
-                  {card.scene && <SceneImage narration={card.scene.narration}/>}
-                  {card.player && <div className="msg-player">› {card.player.text}</div>}
-                  {card.rolls.map((r,i)=>(
+                  {card.scene && card.scene.narration && <SceneImage narration={card.scene.narration}/>}
+                  {card.player && card.player.text && <div className="msg-player">› {card.player.text}</div>}
+                  {(card.rolls || []).map((r,i)=> r && (
                     <div key={i} className="msg-roll">
-                      <div className="roll-title">{r.title}</div>
-                      {r.lines.map((l,j)=><div key={j}>{l}</div>)}
+                      <div className="roll-title">{r.title || ""}</div>
+                      {(r.lines || []).map((l,j)=><div key={j}>{String(l || "")}</div>)}
                     </div>
                   ))}
-                  <div className="msg-dm">{card.dm.text}</div>
+                  <div className="msg-dm">{String(card.dm.text || "")}</div>
                   {loading && cardIndex === cards.length - 1 && (
-                    <div className="msg-dm" style={{borderTop:`1px solid ${S.border}`,paddingTop:10,marginTop:10}}>
+                    <div className="msg-dm" style={{borderTop:`1px solid #1a2540`,paddingTop:10,marginTop:10}}>
                       <div className="typing"><div className="dot"/><div className="dot"/><div className="dot"/></div>
                     </div>
                   )}
