@@ -280,10 +280,10 @@ const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body,#root{height:100%;width:100%;}
-body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;}
+body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;}html{background:${S.ffdark};}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:${S.ffdark};}::-webkit-scrollbar-thumb{background:${S.accentDim};border-radius:2px;}
 
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;background:#020408;}
 
 /* FF-style top bar */
 .top-bar{padding:0;border-bottom:2px solid ${S.ffgold};display:flex;align-items:stretch;flex-shrink:0;background:linear-gradient(180deg,#0a1428 0%,#050810 100%);}
@@ -391,6 +391,13 @@ body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,se
 .sheet-toggle{background:none;border:none;border-left:1px solid ${S.border};color:${S.muted};font-family:'Cinzel',serif;font-size:10px;padding:0 14px;cursor:pointer;transition:all .15s;letter-spacing:.06em;}
 .sheet-toggle:hover{color:${S.ffgold};}
 
+.card-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #1a2540;background:#020408;flex-shrink:0;}
+.card-nav-btn{background:none;border:1px solid #1a2540;color:#c8a030;font-size:22px;width:38px;height:38px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
+.card-nav-btn:hover:not(:disabled){border-color:#c8a030;}
+.card-nav-btn:disabled{opacity:.2;cursor:default;}
+.card-nav-count{font-family:'Cinzel',serif;font-size:11px;color:#4a5870;letter-spacing:.1em;}
+.card-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:#020408;}
+.play-card{display:flex;flex-direction:column;background:#020408;min-height:100%;}
 .typing{display:flex;gap:5px;align-items:center;padding:6px 0;}
 .dot{width:4px;height:4px;background:${S.ffgold};border-radius:50%;animation:pulse 1.2s infinite;}
 .dot:nth-child(2){animation-delay:.25s;}.dot:nth-child(3){animation-delay:.5s;}
