@@ -126,12 +126,9 @@ export default function CharacterSelect({ onSelect, hasSave }) {
       <style>{css}</style>
       <div className="cs-wrap">
         <div className="cs-header">
-          <div className="cs-logo">⚔ SOLO DxD: STORY CHRONICLES</div>
-          <div className="cs-sub">Choose Your Adventure</div>
-        </div>
-        <div className="cs-body">
+          <img src="/favicon.png" alt="Solo DxD" style={{width:140,height:140,borderRadius:24,marginBottom:16,boxShadow:"0 0 40px rgba(200,160,48,.3)"}}/>
           {hasSave && (
-            <button className="main-btn continue-btn" onClick={() => onSelect(null, true)}>
+            <button className="main-btn continue-btn" style={{width:"100%",marginBottom:12}} onClick={() => onSelect(null, true)}>
               <span className="main-btn-icon">💾</span>
               <div>
                 <div className="main-btn-title">Continue Adventure</div>
@@ -139,20 +136,24 @@ export default function CharacterSelect({ onSelect, hasSave }) {
               </div>
             </button>
           )}
-          <button className="main-btn" onClick={() => setScreen("premade")}>
-            <span className="main-btn-icon">⚔️</span>
-            <div>
-              <div className="main-btn-title">Choose a Character</div>
-              <div className="main-btn-desc">6 pre-made characters ready to play</div>
-            </div>
-          </button>
-          <button className="main-btn" onClick={() => setScreen("create")}>
-            <span className="main-btn-icon">📜</span>
-            <div>
-              <div className="main-btn-title">Create a Character</div>
-              <div className="main-btn-desc">Full D&D 5e character builder</div>
-            </div>
-          </button>
+        </div>
+        <div className="cs-body">
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <button className="main-btn" style={{flexDirection:"column",alignItems:"center",textAlign:"center",padding:"20px 12px"}} onClick={() => setScreen("premade")}>
+              <span className="main-btn-icon" style={{fontSize:36,marginBottom:8}}>⚔️</span>
+              <div>
+                <div className="main-btn-title">Choose a Character</div>
+                <div className="main-btn-desc">6 pre-made heroes</div>
+              </div>
+            </button>
+            <button className="main-btn" style={{flexDirection:"column",alignItems:"center",textAlign:"center",padding:"20px 12px"}} onClick={() => setScreen("create")}>
+              <span className="main-btn-icon" style={{fontSize:36,marginBottom:8}}>📜</span>
+              <div>
+                <div className="main-btn-title">Create a Character</div>
+                <div className="main-btn-desc">Full 5e builder</div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </>
