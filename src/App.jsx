@@ -108,9 +108,11 @@ Adventure setting: mist-shrouded Craghaven mountains near ruined monastery with 
 
 async function callDM(messages, system) {
   try {
+    // Trim history to last 10 messages to stay within Groq context limits
+    const trimmed = messages.slice(-10);
     const r = await fetch("/api/chat", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system: system||DM_SYSTEM, messages }),
+      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, system: system||DM_SYSTEM, messages: trimmed }),
     });
     const d = await r.json();
     if (!r.ok) return `[Error ${r.status}: ${d?.error||JSON.stringify(d).slice(0,80)}] {"choices":["Try again","Retry","Wait","Continue"]}`;
