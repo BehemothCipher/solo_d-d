@@ -11,11 +11,11 @@ export default async function handler(req, res) {
   try {
     const { messages, system, max_tokens } = req.body;
 
-    // Trim to last 10 messages to stay within Groq context limits
-    const trimmed = (messages || []).slice(-10);
+    // Trim to last 8 messages to stay within context limits
+    const trimmed = (messages || []).slice(-8);
 
     const groqMessages = [];
-    if (system) groqMessages.push({ role: "system", content: system });
+    if (system) groqMessages.push({ role: "system", content: system.slice(0, 4000) });
     groqMessages.push(...trimmed);
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -25,9 +25,9 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
+        model: "llama3-70b-8192",
         messages: groqMessages,
-        max_tokens: max_tokens || 1000,
+        max_tokens: 1000,
         temperature: 0.85,
       }),
     });
@@ -47,7 +47,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Empty response from Groq" });
     }
 
-    // Return in Anthropic-compatible format
     return res.status(200).json({
       content: [{ type: "text", text }],
     });
