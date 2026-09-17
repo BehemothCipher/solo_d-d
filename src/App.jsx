@@ -267,16 +267,17 @@ function AppInner() {
     if (loadSave) {
       try {
         const s = loadGame("solo_dxd_v1");
-          if (s && s.messages && s.messages.length>0) {
-            setCharacter(s.character || char);
-            setMsgs(s.messages);
-            setHistory(s.history||[]);
-            setHp(s.hp||9);
-            setCombat(s.inCombat||false);
-            setChoices(s.choices||[]);
-            setSaveStatus("Adventure restored!");
-            setTimeout(()=>setSaveStatus(""),3000);
-            return;
+        if (s && s.messages && s.messages.length>0) {
+          setCharacter(s.character || char);
+          setMsgs(s.messages);
+          setHistory(s.history||[]);
+          setHp(s.hp||9);
+          setCombat(s.inCombat||false);
+          setChoices(s.choices||[]);
+          setSaveStatus("Adventure restored!");
+          setTimeout(()=>setSaveStatus(""),3000);
+          return;
+        }
       } catch(e) { console.warn("Load failed",e); }
     }
     setCharacter(char);
