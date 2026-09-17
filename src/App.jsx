@@ -7,25 +7,19 @@ const KAELEN_DEFAULT_ATK = { name:"Shortsword", atkBonus:4, damageDice:6, damage
 const d20check = mod => { const d = roll(20); return { d20:d, total:d+mod, nat:d }; };
 const fmt = n => n >= 0 ? `+${n}` : `${n}`;
 
-function getSessionId() { return "solo_dnd_kaelen_v1"; }
+function getSessionId() { return "solo_dxd_v1"; }
 
-async function saveGame(sessionId, state) {
+function saveGame(sessionId, state) {
   try {
-    await fetch("/api/save", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ sessionId, state }),
-    });
+    localStorage.setItem(`dxd_save_${sessionId}`, JSON.stringify(state));
   } catch(e) { console.warn("Save failed", e); }
 }
 
-async function loadGame(sessionId) {
+function loadGame(sessionId) {
   try {
-    const r = await fetch(`/api/load?sessionId=${sessionId}`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    let s = d.state;
-    if (typeof s === "string") { try { s = JSON.parse(s); } catch{} }
-    return s;
+    const raw = localStorage.getItem(`dxd_save_${sessionId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch { return null; }
 }
 
@@ -148,7 +142,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.err) {
       return React.createElement("div", { style:{background:"#050810",color:"#c8d8f0",padding:20,minHeight:"100vh",fontFamily:"monospace"} },
-        React.createElement("div", { style:{color:"#d4aa50",fontSize:18,marginBottom:12} }, "Solo D&D — Error"),
+        React.createElement("div", { style:{color:"#d4aa50",fontSize:18,marginBottom:12} }, "Solo DxD: Story Chronicles — Error"),
         React.createElement("div", { style:{color:"#c03030",marginBottom:8} }, String(this.state.err?.message||"Unknown")),
         React.createElement("pre", { style:{fontSize:10,color:"#8090a0",whiteSpace:"pre-wrap"} }, String(this.state.err?.stack||"").slice(0,400)),
         React.createElement("button", { onClick:()=>window.location.reload(), style:{marginTop:16,padding:"8px 16px",background:"#1e4a60",border:"1px solid #4a9aba",color:"white",cursor:"pointer"} }, "Reload")
@@ -260,13 +254,8 @@ function AppInner() {
   useEffect(() => {
     (async()=>{
       try {
-        const r = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
-        if (r.ok) {
-          const d = await r.json();
-          let s = d.state;
-          if (typeof s==="string") { try{s=JSON.parse(s);}catch{} }
-          if (s && s.messages && s.messages.length>0) { setHasSave(true); }
-        }
+        const saved = loadGame("solo_dxd_v1");
+        if (saved && saved.messages && saved.messages.length>0) { setHasSave(true); }
       } catch{}
       setInit(false);
       setShowSelect(true);
@@ -277,11 +266,7 @@ function AppInner() {
     setShowSelect(false);
     if (loadSave) {
       try {
-        const r = await fetch("/api/load?sessionId=solo_dnd_kaelen_v1");
-        if (r.ok) {
-          const d = await r.json();
-          let s = d.state;
-          if (typeof s==="string") { try{s=JSON.parse(s);}catch{} }
+        const s = loadGame("solo_dxd_v1");
           if (s && s.messages && s.messages.length>0) {
             setCharacter(s.character || char);
             setMsgs(s.messages);
@@ -292,8 +277,6 @@ function AppInner() {
             setSaveStatus("Adventure restored!");
             setTimeout(()=>setSaveStatus(""),3000);
             return;
-          }
-        }
       } catch(e) { console.warn("Load failed",e); }
     }
     setCharacter(char);
@@ -306,7 +289,7 @@ function AppInner() {
     setSaveStatus("Saving...");
     const saveMessages = messages.filter(m=>m.type!=="scene").slice(-30);
     const state = { messages:saveMessages, history:history.slice(-20), hp, inCombat, choices, character };
-    await saveGame(sessionId.current, state);
+    saveGame(sessionId.current, state);
     setSaveStatus("✓ Saved!");
     setTimeout(()=>setSaveStatus(""),2500);
   }
@@ -387,7 +370,7 @@ function AppInner() {
 
   if (initializing) return (
     <div style={{background:"#050810",height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
-      <div style={{fontFamily:"serif",fontSize:22,color:"#d4aa50",letterSpacing:".1em"}}>⚔ SOLO D&D</div>
+      <div style={{fontFamily:"serif",fontSize:22,color:"#d4aa50",letterSpacing:".1em"}}>⚔ SOLO DxD</div>
       <div style={{display:"flex",gap:5}}>
         {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#305a70",animation:`pulse 1.2s ${i*.2}s infinite`}}/>)}
       </div>
@@ -416,7 +399,7 @@ function AppInner() {
       {/* Top bar */}
       <div style={{display:"flex",alignItems:"stretch",borderBottom:"2px solid #c8a030",background:"linear-gradient(180deg,#0a1428,#050810)",flexShrink:0}}>
         <div style={{padding:"8px 14px",display:"flex",alignItems:"center",gap:10,flex:1}}>
-          <span style={{fontFamily:"Cinzel,serif",fontSize:15,color:"#d4aa50",letterSpacing:".08em"}}>⚔ SOLO D&D</span>
+          <span style={{fontFamily:"Cinzel,serif",fontSize:15,color:"#d4aa50",letterSpacing:".08em"}}>⚔ SOLO DxD</span>
           <span style={{fontSize:10,color:"#4a5870"}}>{char.name||"Hero"}{char.title?" · "+char.title:""}</span>
           {saveStatus && <span style={{fontSize:9,color:"#208050",fontStyle:"italic"}}>{saveStatus}</span>}
         </div>
