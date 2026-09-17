@@ -1,4 +1,4 @@
-// v2
+// v3
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages: groqMessages,
         max_tokens: 1000,
         temperature: 0.85,
@@ -57,4 +57,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Proxy error", detail: err.message });
   }
 }
- 
