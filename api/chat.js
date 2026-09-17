@@ -9,15 +9,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Map Anthropic-style request to Groq
     const { messages, system, max_tokens } = req.body;
 
-    // Groq uses OpenAI-compatible format
+    // Trim to last 10 messages to stay within Groq context limits
+    const trimmed = (messages || []).slice(-10);
+
     const groqMessages = [];
-    if (system) {
-      groqMessages.push({ role: "system", content: system });
-    }
-    groqMessages.push(...messages);
+    if (system) groqMessages.push({ role: "system", content: system });
+    groqMessages.push(...trimmed);
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -43,14 +42,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Convert Groq response to Anthropic-compatible format
     const text = data.choices?.[0]?.message?.content;
     if (!text) {
-      console.error("Empty Groq response:", JSON.stringify(data));
       return res.status(500).json({ error: "Empty response from Groq" });
     }
 
-    // Return in Anthropic format so App.jsx doesn't need changes
+    // Return in Anthropic-compatible format
     return res.status(200).json({
       content: [{ type: "text", text }],
     });
