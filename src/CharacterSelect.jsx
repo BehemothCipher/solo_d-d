@@ -55,11 +55,11 @@ export default function CharacterSelect({ onSelect, hasSave }) {
     html,body,#root{height:100%;width:100%;}
     body{background:${S.ffdark};color:${S.text};font-family:'Crimson Pro',Georgia,serif;overflow-x:hidden;}
     ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:${S.accentDim};}
-    .cs-wrap{min-height:100vh;min-height:100dvh;background:linear-gradient(180deg,#020610 0%,#050810 50%,#020408 100%);display:flex;flex-direction:column;align-items:center;padding:0 0 40px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .cs-wrap{height:100vh;height:100dvh;background:linear-gradient(180deg,#020610 0%,#050810 50%,#020408 100%);display:flex;flex-direction:column;align-items:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:40px;}
     .cs-header{width:100%;padding:24px 20px 16px;text-align:center;border-bottom:1px solid ${S.border};background:linear-gradient(180deg,#080d20,transparent);}
     .cs-logo{font-family:'Cinzel',serif;font-size:24px;color:${S.ffgold};letter-spacing:.12em;text-shadow:0 0 30px rgba(212,170,80,.4);}
     .cs-sub{font-size:12px;color:${S.muted};margin-top:4px;letter-spacing:.08em;}
-    .cs-body{width:100%;max-width:600px;padding:20px 16px;}
+    .cs-body{width:100%;max-width:600px;padding:20px 16px;flex:1;}
     .main-btn{display:flex;align-items:center;gap:14px;width:100%;background:linear-gradient(135deg,${S.panel},${S.rune});border:1px solid ${S.border};border-radius:4px;padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:all .15s;text-align:left;}
     .main-btn:hover{border-color:${S.ffgold};background:linear-gradient(135deg,#0f1830,#080c18);}
     .main-btn-icon{font-size:28px;flex-shrink:0;}
@@ -126,7 +126,7 @@ export default function CharacterSelect({ onSelect, hasSave }) {
       <style>{css}</style>
       <div className="cs-wrap">
         <div className="cs-header">
-          <div className="cs-logo">⚔ SOLO D&D</div>
+          <div className="cs-logo">⚔ SOLO DxD: STORY CHRONICLES</div>
           <div className="cs-sub">Choose Your Adventure</div>
         </div>
         <div className="cs-body">
@@ -163,7 +163,7 @@ export default function CharacterSelect({ onSelect, hasSave }) {
       <style>{css}</style>
       <div className="cs-wrap">
         <div className="cs-header">
-          <div className="cs-logo">⚔ Choose Your Character</div>
+          <div className="cs-logo">⚔ Solo DxD: Story Chronicles</div>
           <div className="cs-sub">Select a pre-made adventurer</div>
         </div>
         <div className="cs-body">
