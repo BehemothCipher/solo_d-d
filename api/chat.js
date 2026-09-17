@@ -1,4 +1,4 @@
-// v3
+// v4
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -11,10 +11,7 @@ export default async function handler(req, res) {
 
   try {
     const { messages, system, max_tokens } = req.body;
-
-    // Trim to last 8 messages to stay within context limits
     const trimmed = (messages || []).slice(-8);
-
     const groqMessages = [];
     if (system) groqMessages.push({ role: "system", content: system.slice(0, 4000) });
     groqMessages.push(...trimmed);
@@ -26,7 +23,7 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "compound-beta",
         messages: groqMessages,
         max_tokens: 1000,
         temperature: 0.85,
@@ -37,20 +34,13 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error("Groq error:", response.status, JSON.stringify(data));
-      return res.status(response.status).json({
-        error: "Groq API error",
-        detail: data,
-      });
+      return res.status(response.status).json({ error: "Groq API error", detail: data });
     }
 
     const text = data.choices?.[0]?.message?.content;
-    if (!text) {
-      return res.status(500).json({ error: "Empty response from Groq" });
-    }
+    if (!text) return res.status(500).json({ error: "Empty response" });
 
-    return res.status(200).json({
-      content: [{ type: "text", text }],
-    });
+    return res.status(200).json({ content: [{ type: "text", text }] });
 
   } catch (err) {
     console.error("Proxy error:", err.message);
